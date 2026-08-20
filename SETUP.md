@@ -1,8 +1,8 @@
 # Connecting calendar accounts
 
-The app talks to Google Calendar and Microsoft Graph directly, as a public
-OAuth client. Public clients have no usable secret, so each installation
-registers its own client ID. This is a one-time job per provider.
+The app talks to Google Calendar and Microsoft Graph directly, so each
+installation registers its own credentials with them. It is a one-time job per
+provider, and the fiddliest part of setting the app up.
 
 Both providers use a **loopback redirect** — the app opens your browser, then
 listens on a temporary `localhost` port for the response. Nothing is exposed to
@@ -50,40 +50,30 @@ Scopes requested: `Calendars.Read offline_access openid profile`.
 
 ## Entering the client IDs
 
-There is no settings window yet (phase 5), so the IDs go into the settings file
-by hand:
-
-1. Menu bar icon → **Accounts → Reveal Settings File**.
-2. Edit `settings.json`, filling in `googleClientID` **and** `googleClientSecret`,
-   and/or `microsoftClientID`. Microsoft takes no secret.
-3. Quit and relaunch the app.
-4. Menu bar icon → **Accounts → Connect Google...** / **Connect Microsoft...**.
-   Your browser opens; approve, and the tab will tell you it is done.
+1. Open **Settings** (⌘,) → **Accounts**.
+2. Paste the Google **client ID** and **client secret**, and/or the Microsoft
+   **client ID**. Microsoft does not use a secret.
+3. Click **Connect Google…** or **Connect Microsoft…**. Your browser opens;
+   approve the request, and the tab will tell you when it is done.
 
 Refresh tokens are stored in the **login Keychain**, one item per account under
 the service `app.youhaveameeting.oauth`. Access tokens are held in memory only.
 **Accounts → Disconnect** removes both the account and its Keychain item.
 
-If you are still on an ad-hoc-signed build, macOS will ask for Keychain access
-again after every rebuild, because each build has a different code identity.
-Run `Scripts/make-signing-cert.sh` once to stop that.
+macOS asks for Keychain access again after every rebuild, because each build is
+a different app as far as it is concerned. This does not happen when you just
+run an installed copy.
 
 ## Recognised meeting links
 
-Join links are taken from the provider's structured field first
-(`conferenceData.entryPoints` on Google, `onlineMeeting.joinUrl` on Graph). If
-the event has none, the location and description are scanned using the
-configurable provider list in `settings.json`:
+The Join button uses the meeting link the calendar provides directly, when there
+is one. Many invitations do not have one — the link is just text in the
+description — so those are scanned for known services.
 
-```json
-"meetingLinkProviders": [
-  { "id": "google-meet", "name": "Google Meet", "pattern": "...", "isEnabled": true },
-  { "id": "teams",       "name": "Microsoft Teams", "pattern": "...", "isEnabled": true },
-  { "id": "zoom",        "name": "Zoom", "pattern": "...", "isEnabled": true }
-]
-```
+Manage that list in **Settings (⌘,) → Links**. Google Meet, Microsoft Teams and
+Zoom are on by default, and Webex is included but switched off. You can edit any
+pattern, add your own service, or drag to reorder — the first match wins.
 
-Order is priority — the first pattern that matches wins. Webex ships as a
-built-in but is disabled by default; add it, or add your own entry for a
-self-hosted service, by appending to this list. A pattern that fails to compile
-is skipped and logged, never fatal.
+Paste a URL into the test box on that page to see which service it matches. A
+pattern that is not valid is flagged there, and is ignored until you fix it
+rather than breaking anything else.
