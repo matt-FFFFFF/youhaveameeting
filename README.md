@@ -30,15 +30,18 @@ make install
 
 That builds the app and copies it to `/Applications`. Open it from there.
 
-Optional but recommended, once:
+Optional, once:
 
 ```sh
 ./Scripts/make-signing-cert.sh
 ```
 
-This creates a stable self-signed certificate so macOS stops treating each
-rebuild as a brand-new app. Without it you get an extra Keychain prompt every
-time you rebuild. macOS will ask you to authorise the certificate.
+This creates a stable self-signed code-signing identity, so each build is signed
+with the same certificate instead of an ad-hoc signature. macOS will ask you to
+authorise the certificate.
+
+It does **not** stop the Keychain prompts. macOS asks for access to the stored
+OAuth tokens after every rebuild whether or not you run this.
 
 ## First run
 
@@ -115,8 +118,9 @@ that service if nothing matches.
 *Testing*; Google expires refresh tokens after 7 days in that state. Publish it
 — see [SETUP.md](SETUP.md).
 
-**macOS keeps asking for Keychain access.** Expected after each rebuild for a
-self-signed app. It does not happen when you simply run an installed copy.
+**macOS keeps asking for Keychain access.** Expected after every rebuild, with
+or without the signing certificate — running `make install` again re-prompts.
+Simply running an installed copy, without rebuilding it, does not.
 
 ## Contributing
 
@@ -124,7 +128,7 @@ self-signed app. It does not happen when you simply run an installed copy.
 toolchain quirks — worth reading before changing anything.
 
 ```sh
-make test    # 70 tests
+make test    # 85 tests
 make lint
 make fmt
 ```
