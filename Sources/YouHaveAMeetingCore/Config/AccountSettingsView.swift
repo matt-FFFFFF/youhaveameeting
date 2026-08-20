@@ -47,9 +47,17 @@ struct AccountSettingsView: View {
 
             Section("Microsoft") {
                 TextField("Client ID", text: settings.binding(\.microsoftClientID))
-                Text("Microsoft public clients take no secret.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                TextField("Directory (tenant) ID", text: settings.binding(\.microsoftTenant))
+                Text(
+                    """
+                    Microsoft public clients take no secret. Paste the directory \
+                    (tenant) ID from the same Overview page: `common` works only \
+                    for a registration that allows other tenants, and one of those \
+                    will stop for admin approval. See SETUP.md.
+                    """
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
             }
 
             if let error {

@@ -37,22 +37,56 @@ Scope requested: `calendar.events.readonly`.
 
 1. [Entra admin centre](https://entra.microsoft.com) → **App registrations →
    New registration**.
-2. Under **Redirect URI**, choose **Public client/native (mobile & desktop)**
+2. Leave **Supported account types** on **Accounts in this organizational
+   directory only** — the single-tenant default. Do not make it multi-tenant;
+   see below.
+3. Under **Redirect URI**, choose **Public client/native (mobile & desktop)**
    and enter `http://localhost`.
-3. After creating it, open **Authentication** and confirm **Allow public client
+4. After creating it, open **Authentication** and confirm **Allow public client
    flows** is **Yes**.
-4. **API permissions → Add a permission → Microsoft Graph → Delegated
-   permissions → `Calendars.Read`.** Some tenants require an administrator to
-   grant consent — if the app reports a consent error at sign-in, this is why.
-5. Copy the **Application (client) ID** from the Overview page.
+5. **API permissions → Add a permission → Microsoft Graph → Delegated
+   permissions → `Calendars.Read`.** Delegated, not Application: application
+   permissions always require an administrator.
+6. Copy **both** the **Application (client) ID** and the **Directory (tenant)
+   ID** from the Overview page. The app needs both.
 
 Scopes requested: `Calendars.Read offline_access openid profile`.
+
+### Why single-tenant, and why the tenant ID
+
+Entra decides which sign-in endpoint a registration may use from its supported
+account types, and the two settings fail in opposite directions:
+
+- A **single-tenant** registration is rejected by the shared `common` endpoint
+  with **AADSTS50194** (*"not configured as a multi-tenant application"*). It
+  has to sign in against its own tenant, which is why the directory (tenant) ID
+  is asked for.
+- A **multi-tenant** registration can use `common`, but it then runs into
+  [risk-based step-up consent][consent]: since November 2020, an ordinary user
+  cannot consent to a multi-tenant app from an unverified publisher for
+  anything beyond basic sign-in. `Calendars.Read` is beyond it, so every
+  sign-in stops at **"Need admin approval"**. [Publisher verification][verify]
+  clears that, and is far more work than pasting a tenant ID.
+
+Single-tenant with your own tenant ID avoids both. If an admin has set user
+consent to **Do not allow user consent** for the whole tenant, no registration
+shape gets round it — an administrator has to press **Grant admin consent for
+&lt;organisation&gt;** on the registration's **API permissions** page once.
+
+If you sign in with a personal Microsoft account rather than a work one, there
+is no tenant to name: register for **personal Microsoft accounts** and put
+`common` in the tenant field.
+
+[consent]: https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/configure-risk-based-step-up-consent
+[verify]: https://learn.microsoft.com/en-us/entra/identity-platform/publisher-verification-overview
 
 ## Entering the client IDs
 
 1. Open **Settings** (⌘,) → **Accounts**.
 2. Paste the Google **client ID** and **client secret**, and/or the Microsoft
-   **client ID**. Microsoft does not use a secret.
+   **client ID** and **directory (tenant) ID**. Microsoft does not use a
+   secret. Leaving the tenant field empty means `common`, which only works for
+   a registration that allows other tenants.
 3. Click **Connect Google…** or **Connect Microsoft…**. Your browser opens;
    approve the request, and the tab will tell you when it is done.
 

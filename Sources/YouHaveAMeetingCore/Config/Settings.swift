@@ -32,6 +32,16 @@ struct Settings: Codable, Equatable, Sendable {
     var googleClientID: String = ""
     var googleClientSecret: String = ""
     var microsoftClientID: String = ""
+    /// Which Entra authority signs the user in - see `OAuthConfig.microsoft`.
+    ///
+    /// A single-tenant registration, which is what the portal offers by
+    /// default, has to name its own tenant here; `common` rejects it. Going
+    /// multi-tenant instead is usually the longer road, not the shorter one:
+    /// under risk-based step-up consent a multi-tenant registration with no
+    /// verified publisher cannot be consented to by an ordinary user for
+    /// anything past basic sign-in, and `Calendars.Read` is past it, so every
+    /// sign-in stops for admin approval. See SETUP.md.
+    var microsoftTenant: String = OAuthConfig.defaultMicrosoftTenant
 
     /// Connected accounts. Refresh tokens live in the Keychain, keyed by id.
     var accounts: [Account] = []
@@ -79,6 +89,7 @@ struct Settings: Codable, Equatable, Sendable {
         googleClientID = try value(.googleClientID, default: fallback.googleClientID)
         googleClientSecret = try value(.googleClientSecret, default: fallback.googleClientSecret)
         microsoftClientID = try value(.microsoftClientID, default: fallback.microsoftClientID)
+        microsoftTenant = try value(.microsoftTenant, default: fallback.microsoftTenant)
         accounts = try value(.accounts, default: fallback.accounts)
         meetingLinkProviders = try value(
             .meetingLinkProviders,
@@ -88,6 +99,16 @@ struct Settings: Codable, Equatable, Sendable {
 }
 
 extension Settings {
+    /// The endpoints and scopes for `kind`, with the per-installation parts
+    /// filled in from here. Pairs with `clientID(for:)`: both are things only
+    /// this installation knows.
+    func oauthConfig(for kind: ProviderKind) -> OAuthConfig {
+        switch kind {
+        case .google: .google
+        case .microsoft: .microsoft(tenant: microsoftTenant)
+        }
+    }
+
     func clientID(for kind: ProviderKind) -> String {
         switch kind {
         case .google: googleClientID

@@ -58,23 +58,56 @@ extension OAuthConfig {
         requiresClientSecret: true
     )
 
-    static let microsoft = OAuthConfig(
-        kind: .microsoft,
-        authorizeURL: URL(
-            staticString: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
-        ),
-        tokenURL: URL(staticString: "https://login.microsoftonline.com/common/oauth2/v2.0/token"),
-        scopes: ["Calendars.Read", "offline_access", "openid", "profile"],
-        redirectHost: "localhost",
-        extraAuthorizeParameters: [:],
-        requiresClientSecret: false
-    )
+    /// Entra's any-tenant authority.
+    ///
+    /// It accepts only registrations whose supported account types include
+    /// tenants other than their own. A single-tenant registration - the
+    /// default the portal offers - is rejected here with AADSTS50194 and has
+    /// to name its own tenant instead.
+    static let defaultMicrosoftTenant = "common"
 
-    static func forKind(_ kind: ProviderKind) -> OAuthConfig {
-        switch kind {
-        case .google: .google
-        case .microsoft: .microsoft
+    /// - Parameter tenant: the authority to sign in against: `common`,
+    ///   `organizations`, `consumers`, or one tenant's GUID or verified
+    ///   domain. It has to match how the registration's supported account
+    ///   types are set; SETUP.md covers which to choose.
+    static func microsoft(tenant: String) -> OAuthConfig {
+        let authority = authoritySegment(tenant)
+        return OAuthConfig(
+            kind: .microsoft,
+            authorizeURL: entraEndpoint(authority: authority, "authorize"),
+            tokenURL: entraEndpoint(authority: authority, "token"),
+            scopes: ["Calendars.Read", "offline_access", "openid", "profile"],
+            redirectHost: "localhost",
+            extraAuthorizeParameters: [:],
+            requiresClientSecret: false
+        )
+    }
+
+    /// This is pasted out of the Entra portal, so surrounding whitespace and
+    /// slashes are expected, and a cleared field means the any-tenant
+    /// authority.
+    ///
+    /// Whatever survives that is percent-encoded rather than validated. A
+    /// tenant Entra does not recognise then comes back as its own "tenant not
+    /// found", which names the mistake better than a guess made here could.
+    private static func authoritySegment(_ tenant: String) -> String {
+        let trimmed = tenant
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !trimmed.isEmpty else { return defaultMicrosoftTenant }
+        // Excluding "/" stops a pasted authority URL spilling into the path
+        // and forming a plausible-looking but wrong endpoint.
+        let allowed = CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: "/"))
+        return trimmed.addingPercentEncoding(withAllowedCharacters: allowed) ?? trimmed
+    }
+
+    private static func entraEndpoint(authority: String, _ endpoint: String) -> URL {
+        let string = "https://login.microsoftonline.com/\(authority)/oauth2/v2.0/\(endpoint)"
+        // `authority` is percent-encoded above, so this cannot fail.
+        guard let url = URL(string: string) else {
+            preconditionFailure("invalid Entra endpoint: \(string)")
         }
+        return url
     }
 }
 

@@ -98,12 +98,15 @@ struct RedirectURITests {
     @Test("matches the bare loopback host registered in both consoles")
     func format() {
         #expect(OAuthConfig.google.redirectURI(port: 52341) == "http://localhost:52341")
-        #expect(OAuthConfig.microsoft.redirectURI(port: 52341) == "http://localhost:52341")
+        #expect(
+            OAuthConfig.microsoft(tenant: "common").redirectURI(port: 52341)
+                == "http://localhost:52341"
+        )
     }
 
     @Test("no path is appended, which would break redirect matching")
     func noPath() {
-        for config in [OAuthConfig.google, OAuthConfig.microsoft] {
+        for config in [OAuthConfig.google, .microsoft(tenant: "common")] {
             #expect(!config.redirectURI(port: 1).contains("/callback"))
         }
     }
@@ -114,7 +117,7 @@ struct ClientSecretTests {
     @Test("Google requires a secret, Microsoft does not")
     func requirements() {
         #expect(OAuthConfig.google.requiresClientSecret)
-        #expect(!OAuthConfig.microsoft.requiresClientSecret)
+        #expect(!OAuthConfig.microsoft(tenant: "common").requiresClientSecret)
     }
 
     @Test("a missing Google secret fails before the browser opens")
@@ -132,7 +135,7 @@ struct ClientSecretTests {
     func emptyClientID() async {
         await #expect(throws: AuthError.notConfigured(.microsoft)) {
             _ = try await OAuthClient.authorize(
-                config: .microsoft,
+                config: .microsoft(tenant: "common"),
                 clientID: "",
                 clientSecret: ""
             )
@@ -148,5 +151,81 @@ struct ClientSecretTests {
             "client_secret": "GOCSPX-example"
         ])
         #expect(encoded.contains("client_secret=GOCSPX-example"))
+    }
+}
+
+@Suite("Entra authority")
+struct EntraAuthorityTests {
+    static let tenant = "72f988bf-86f1-41af-91ab-2d7cd011db47"
+
+    @Test("a tenant reaches both endpoints, so single-tenant apps can sign in")
+    func tenantSpecific() {
+        // Hardcoding /common is what made a single-tenant registration fail
+        // with AADSTS50194, so both endpoints have to carry the tenant.
+        let config = OAuthConfig.microsoft(tenant: Self.tenant)
+        for url in [config.authorizeURL, config.tokenURL] {
+            #expect(url.absoluteString.contains(Self.tenant))
+            #expect(!url.absoluteString.contains("common"))
+        }
+        #expect(
+            config.authorizeURL.absoluteString
+                == "https://login.microsoftonline.com/\(Self.tenant)/oauth2/v2.0/authorize"
+        )
+        #expect(
+            config.tokenURL.absoluteString
+                == "https://login.microsoftonline.com/\(Self.tenant)/oauth2/v2.0/token"
+        )
+    }
+
+    @Test("a blank tenant falls back to the any-tenant authority")
+    func blankFallsBack() {
+        for blank in ["", "   ", "\n", "/"] {
+            let config = OAuthConfig.microsoft(tenant: blank)
+            #expect(
+                config.authorizeURL.absoluteString
+                    == "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+            )
+        }
+    }
+
+    @Test("whitespace and slashes around a pasted tenant are trimmed")
+    func trimsPastedValue() {
+        for pasted in [" \(Self.tenant) ", "\(Self.tenant)\n", "/\(Self.tenant)/"] {
+            #expect(
+                OAuthConfig.microsoft(tenant: pasted).tokenURL.absoluteString
+                    == "https://login.microsoftonline.com/\(Self.tenant)/oauth2/v2.0/token"
+            )
+        }
+    }
+
+    @Test("an interior slash cannot extend the path into a wrong endpoint")
+    func slashCannotEscape() {
+        let config = OAuthConfig.microsoft(tenant: "login.microsoftonline.com/\(Self.tenant)")
+        // Encoded, so Entra reports an unknown tenant rather than the request
+        // silently going somewhere plausible-looking.
+        #expect(config.tokenURL.absoluteString.hasSuffix("/oauth2/v2.0/token"))
+        #expect(config.tokenURL.absoluteString.contains("%2F"))
+    }
+
+    @Test("settings thread the tenant through, and leave Google alone")
+    func fromSettings() {
+        var settings = Settings()
+        settings.microsoftTenant = Self.tenant
+
+        #expect(settings.oauthConfig(for: .microsoft).tokenURL.absoluteString.contains(Self.tenant))
+        #expect(settings.oauthConfig(for: .google).tokenURL == OAuthConfig.google.tokenURL)
+    }
+
+    @Test("a settings file written before the tenant existed still uses common")
+    func defaultsForOlderFiles() throws {
+        let decoded = try JSONDecoder().decode(
+            Settings.self,
+            from: Data(#"{"microsoftClientID":"abc"}"#.utf8)
+        )
+        #expect(decoded.microsoftTenant == OAuthConfig.defaultMicrosoftTenant)
+        #expect(
+            decoded.oauthConfig(for: .microsoft).authorizeURL.absoluteString
+                == "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+        )
     }
 }

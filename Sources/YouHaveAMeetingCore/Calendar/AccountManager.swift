@@ -21,7 +21,7 @@ final class AccountManager {
 
         let account = Account(kind: kind, displayName: kind.displayName)
         let session = try await AuthSession.connect(
-            config: .forKind(kind),
+            config: settings.value.oauthConfig(for: kind),
             clientID: clientID,
             clientSecret: settings.value.clientSecret(for: kind),
             accountID: account.id
@@ -48,7 +48,7 @@ final class AccountManager {
             guard !clientID.isEmpty else { return nil }
 
             let session = sessions[account.id] ?? AuthSession(
-                config: .forKind(account.kind),
+                config: settings.value.oauthConfig(for: account.kind),
                 clientID: clientID,
                 clientSecret: settings.value.clientSecret(for: account.kind),
                 accountID: account.id

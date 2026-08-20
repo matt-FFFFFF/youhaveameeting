@@ -149,6 +149,13 @@ diagnose; do not re-derive them.
   public client; Microsoft public clients reject one. Hence
   `OAuthConfig.requiresClientSecret`. The secret goes only to the token
   endpoint, never the authorize URL.
+- **The Entra authority is per-installation, not a constant.** It was hardcoded
+  to `common`, which every single-tenant registration — the portal's default —
+  rejects with AADSTS50194. `Settings.microsoftTenant` supplies it via
+  `OAuthConfig.microsoft(tenant:)`. Do not "simplify" it back to a constant:
+  the other shape, a multi-tenant registration on `common`, cannot get user
+  consent for `Calendars.Read` without publisher verification, so it stops at
+  "Need admin approval" instead. SETUP.md explains the trade to users.
 - **`CGWindowListCopyWindowInfo` never triggers a TCC check.** It silently
   returns blank titles, so an app that only calls it never appears in the Screen
   Recording list. Only `CGRequestScreenCaptureAccess()` registers it. Permission
