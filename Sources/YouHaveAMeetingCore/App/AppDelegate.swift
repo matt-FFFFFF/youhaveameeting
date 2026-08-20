@@ -219,12 +219,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         presenter.present(meeting, style: style) { [weak self] outcome in
+            self?.menuBar?.setAlerting(false)
             guard case let .snoozed(seconds) = outcome else { return }
             Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .seconds(seconds))
                 self?.present(meeting)
             }
         }
+        menuBar?.setAlerting(true)
     }
 
     /// Manual-verification path for the alert engine. Real alerts come from the

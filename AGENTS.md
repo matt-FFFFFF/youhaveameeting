@@ -13,6 +13,7 @@ make install                 # build, then install to /Applications
 make test                    # swift test
 make lint                    # SwiftFormat --lint + SwiftLint --strict
 make fmt                     # rewrite sources with SwiftFormat
+make icons                   # redraw Resources/AppIcon.icns (committed art)
 make clean
 ```
 
@@ -87,11 +88,23 @@ style could disagree with real behaviour, which is worse than no test.
   there is no polling loop. Re-arms on refresh, `didWakeNotification`, and
   timezone change.
 
+### Branding
+
+The bell is one path set, `BellGlyph`, drawn on a 24x24 grid and fitted to
+whatever rectangle the caller asks for. Both the menu-bar glyph
+(`MenuBarIcon`, template images) and the app icon
+(`Scripts/GenerateAppIcon.swift`) come from it, so they cannot drift apart.
+`BRAND.md` is the spec: read it before changing any of the geometry.
+
+`Resources/AppIcon.icns` is generated art but is committed - `make` must not
+depend on a drawing step. Re-run `make icons` after changing the mark.
+
 ### Testable seams
 
 These are pure functions or pure decoding, and are where new logic belongs:
 
 `MeetingSchedule.next` · `SilencePolicy.style`/`reason` ·
+`MenuBarIconState.current`/`nextTimeDrivenChange` ·
 `EscalationSchedule.offset`/`gap` · `MeetingLinkParser` ·
 `PresenceMonitor.isSharing(windows:)` · `Google/GraphCalendarProvider.decode` ·
 `OAuthClient.formEncoded` · `LoopbackServer.queryItems(fromRequestHead:)`
@@ -138,6 +151,10 @@ diagnose; do not re-derive them.
 - **SwiftFormat strips trailing commas and rewrites `case .x(let y)` to
   `case let .x(y)`.** Patch scripts that match on those forms will silently
   fail. Prefer targeted edits and re-read the file after `make fmt`.
+- **Icon Composer needs full Xcode**, so the macOS 26 Liquid Glass look is
+  painted by hand in `Scripts/GenerateAppIcon.swift` and baked into the
+  `.icns`. A real `.icon` bundle would additionally follow the system's tinted
+  and clear icon modes; a baked `.icns` cannot.
 
 ## Platform gotchas
 
@@ -156,6 +173,11 @@ diagnose; do not re-derive them.
   the other shape, a multi-tenant registration on `common`, cannot get user
   consent for `Calendars.Read` without publisher verification, so it stops at
   "Need admin approval" instead. SETUP.md explains the trade to users.
+- **Presence is sampled, never polled.** The menu-bar glyph's quiet state is
+  read at the moments something already happens - the menu opening, the next
+  meeting changing, an alert appearing, the five-minute warning starting - so
+  it can lag a call that begins while nothing else is going on. Adding a poll
+  to close that gap would undo `PresenceMonitor`'s on-demand design.
 - **`CGWindowListCopyWindowInfo` never triggers a TCC check.** It silently
   returns blank titles, so an app that only calls it never appears in the Screen
   Recording list. Only `CGRequestScreenCaptureAccess()` registers it. Permission

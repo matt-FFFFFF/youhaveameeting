@@ -14,6 +14,13 @@ final class MenuBarController: NSObject {
     private let onShowSettings: () -> Void
     private let onTestAlert: () -> Void
 
+    /// What the glyph is currently showing, so it is only redrawn on a change.
+    private var iconState: MenuBarIconState?
+    private var isAlerting = false
+    /// Sleeps until the moment the glyph would change on its own, mirroring
+    /// how the scheduler waits for a fire time rather than polling.
+    private var iconTransition: Task<Void, Never>?
+
     init(
         settings: SettingsStore,
         accounts: AccountManager,
@@ -29,16 +36,12 @@ final class MenuBarController: NSObject {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
-        let icon = NSImage(
-            systemSymbolName: "calendar.badge.clock",
-            accessibilityDescription: "You Have a Meeting"
-        )
-        icon?.isTemplate = true
-        statusItem.button?.image = icon
-
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
+
+        updateIcon()
+        observeSettings()
     }
 
     func rebuild(_ menu: NSMenu) {
@@ -60,8 +63,72 @@ final class MenuBarController: NSObject {
 
     /// Called when the scheduler's view of the next meeting changes.
     func refreshStatus() {
+        updateIcon()
         guard let menu = statusItem.menu else { return }
         rebuild(menu)
+    }
+
+    // MARK: - Icon
+
+    /// Told by the app when an alert goes up and when it comes down.
+    ///
+    /// The presenter owns that fact and there is no notification for it, so it
+    /// is pushed here rather than discovered.
+    func setAlerting(_ isAlerting: Bool) {
+        guard self.isAlerting != isAlerting else { return }
+        self.isAlerting = isAlerting
+        updateIcon()
+    }
+
+    /// Redraw the glyph if the state it should show has changed, then sleep
+    /// until the next time-driven change.
+    ///
+    /// Presence is sampled here rather than watched: `PresenceMonitor` is
+    /// deliberately on-demand, so the quiet glyph is accurate whenever
+    /// something happens - the menu opening, a meeting approaching, an alert
+    /// appearing - rather than within seconds of a call starting.
+    private func updateIcon() {
+        let current = settings.value
+        let signals = PresenceMonitor.currentSignals(settings: current)
+        let fireTime = scheduler.upcoming.map {
+            MeetingSchedule.fireTime(for: $0, leadOffset: current.leadOffset)
+        }
+        let state = MenuBarIconState.current(
+            fireTime: fireTime,
+            now: .now,
+            isAlerting: isAlerting,
+            isQuiet: SilencePolicy.style(for: signals, settings: current) == .banner
+        )
+
+        if state != iconState {
+            iconState = state
+            statusItem.button?.image = MenuBarIcon.image(for: state)
+        }
+
+        iconTransition?.cancel()
+        guard let next = MenuBarIconState.nextTimeDrivenChange(fireTime: fireTime, now: .now)
+        else { return }
+        iconTransition = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(next.timeIntervalSinceNow))
+            guard !Task.isCancelled else { return }
+            self?.updateIcon()
+        }
+    }
+
+    /// Any settings change can flip the quiet glyph - the Presenting switch and
+    /// the quiet-alert conditions both live in settings, and both can be
+    /// changed from the settings window as well as the menu. Observing the
+    /// store once covers every route.
+    private func observeSettings() {
+        withObservationTracking {
+            _ = settings.value
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                self?.updateIcon()
+                // The tracking API fires once, so re-register for the next.
+                self?.observeSettings()
+            }
+        }
     }
 
     // MARK: - Actions

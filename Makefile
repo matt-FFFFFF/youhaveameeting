@@ -5,7 +5,7 @@ endif
 .ONESHELL:
 SHELL       := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
-.PHONY: all deps build bundle install test lint fmt alert alert-banner clean
+.PHONY: all deps build bundle install test lint fmt icons alert alert-banner clean
 
 # EXEC is the binary and SwiftPM product name - no spaces, so ps and pkill
 # stay usable. NAME is what the user sees.
@@ -57,6 +57,17 @@ lint:
 
 fmt:
 	swiftformat Sources Tests --quiet
+
+# The app icon is generated art, but the result is committed: a plain build
+# must not depend on a drawing step. Re-run this only when the mark changes.
+icons:
+	mkdir -p build
+	swiftc -O Scripts/GenerateAppIcon.swift \
+		Sources/YouHaveAMeetingCore/Branding/BellGlyph.swift \
+		-o build/generate-app-icon
+	./build/generate-app-icon build/AppIcon.iconset
+	iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
+	echo "wrote Resources/AppIcon.icns"
 
 alert: bundle
 	"$(BUNDLE)/Contents/MacOS/$(EXEC)" --test-alert
