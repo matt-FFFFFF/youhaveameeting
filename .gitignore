@@ -1,5 +1,10 @@
+# Swift Package Manager / Makefile build output
 .build/
 build/
+.swiftpm/
+
+# Claude Code session state and worktrees
+.claude/
+
+# macOS
 .DS_Store
-*.p12
-*.pem

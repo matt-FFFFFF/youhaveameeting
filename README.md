@@ -128,3 +128,7 @@ make test    # 70 tests
 make lint
 make fmt
 ```
+
+## Licence
+
+[MIT](LICENSE) © Matt White
