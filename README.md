@@ -53,6 +53,17 @@ time you rebuild. macOS will ask you to authorise the certificate.
 The menu bar shows your next meeting, or says plainly that nothing is connected
 or nothing is scheduled.
 
+The icon itself is a bell, and it tells you where things stand without opening
+the menu:
+
+- **Outline** — nothing due soon.
+- **Filled** — a meeting is about five minutes from alarming.
+- **Filled, with sound lines** — an alert is on screen and has not been dealt
+  with.
+- **Outline with a slash** — alerts are quiet right now, because you are
+  presenting, in a call, or sharing your screen. The next one will be a corner
+  banner rather than a takeover.
+
 ## Using it
 
 Click the menu-bar icon for:
