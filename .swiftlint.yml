@@ -1,0 +1,25 @@
+included:
+  - Sources
+  - Tests
+
+excluded:
+  - .build
+  - build
+
+opt_in_rules:
+  - empty_count
+  - explicit_init
+  - first_where
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  - last_where
+  - redundant_nil_coalescing
+  - unneeded_parentheses_in_closure_argument
+
+line_length:
+  warning: 110
+  error: 140
+  ignores_comments: true
+
+identifier_name:
+  min_length: 2
