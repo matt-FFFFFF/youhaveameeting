@@ -170,9 +170,12 @@ diagnose; do not re-derive them.
   to `common`, which every single-tenant registration — the portal's default —
   rejects with AADSTS50194. `Settings.microsoftTenant` supplies it via
   `OAuthConfig.microsoft(tenant:)`. Do not "simplify" it back to a constant:
-  the other shape, a multi-tenant registration on `common`, cannot get user
-  consent for `Calendars.Read` without publisher verification, so it stops at
-  "Need admin approval" instead. SETUP.md explains the trade to users.
+  the other shape, a multi-tenant registration on `common`, is strictly worse.
+  On a default tenant neither shape can user-consent to `Calendars.Read` — that
+  gate is the low-impact permission classification, which no registration
+  setting and no publisher verification alters — and multi-tenant additionally
+  fails the verified-publisher gate that a registration in your own tenant
+  passes for free. SETUP.md explains this to users.
 - **Presence is sampled, never polled.** The menu-bar glyph's quiet state is
   read at the moments something already happens - the menu opening, the next
   meeting changing, an alert appearing, the five-minute warning starting - so
