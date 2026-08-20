@@ -37,14 +37,13 @@ for f in "$ROOT/Resources"/*; do
 done
 shopt -u nullglob
 
-# Prefer the stable self-signed identity so Keychain ACLs survive rebuilds.
-# Fall back to ad-hoc so a fresh clone still builds.
+# Prefer the stable self-signed identity so the signature stays the same across
+# builds. Fall back to ad-hoc so a fresh clone still builds.
 if security find-identity -v -p codesigning 2>/dev/null | grep -qF "$IDENTITY"; then
   SIGN="$IDENTITY"
 else
   SIGN="-"
   echo "warn: codesigning identity '$IDENTITY' not found - using ad-hoc signature." >&2
-  echo "      Keychain items will re-prompt after every rebuild." >&2
   echo "      Run Scripts/make-signing-cert.sh once to create a stable identity." >&2
 fi
 

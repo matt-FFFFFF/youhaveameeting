@@ -152,9 +152,9 @@ Refresh tokens are stored in the **login Keychain**, one item per account under
 the service `app.youhaveameeting.oauth`. Access tokens are held in memory only.
 **Accounts → Disconnect** removes both the account and its Keychain item.
 
-macOS asks for Keychain access again after every rebuild, because each build is
-a different app as far as it is concerned. This does not happen when you just
-run an installed copy.
+macOS asks for Keychain access again after every rebuild. Running
+`Scripts/make-signing-cert.sh` does not change that. Simply running an installed
+copy, without rebuilding it, does not re-prompt.
 
 ## Recognised meeting links
 

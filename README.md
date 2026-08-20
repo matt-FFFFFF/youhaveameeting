@@ -15,6 +15,11 @@ If you are already in a call, sharing your screen, or have flipped the
 **Presenting** switch, it shows a small silent banner in the corner instead — so
 it never hijacks your screen share. It is never completely silent.
 
+It is cheap to leave running: about **20 MB** of memory and **0% CPU** while it
+waits, which is nearly all the time. Presence is sampled at the moments
+something already happens rather than polled on a timer, so nothing spins in the
+background.
+
 ## Requirements
 
 - macOS 26 or later

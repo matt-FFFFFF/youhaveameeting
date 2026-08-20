@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # One-time: create a stable self-signed code-signing identity in the login keychain.
 #
-# Why: ad-hoc signatures (codesign -s -) give the app a new code identity on every
-# rebuild, so the Keychain treats each build as a different app and re-prompts for
-# access to the stored OAuth refresh tokens. A stable identity avoids that.
+# Why: ad-hoc signatures (codesign -s -) give the app a new code identity on
+# every rebuild. A stable identity keeps one signature across builds, so
+# `codesign --verify` means something and the build stops warning.
+#
+# It does NOT stop the Keychain re-prompting for the stored OAuth refresh
+# tokens: the legacy keychain ACL pins the exact code, and this certificate's
+# Designated Requirement does not override it. Every rebuild prompts, stable
+# identity or not. AGENTS.md records the measurement - do not try to fix it.
 #
 # The key and certificate are imported as separate PEM files rather than bundled
 # into a PKCS#12. OpenSSL 3 writes PKCS#12 with an AES-256 cipher and a SHA-256
