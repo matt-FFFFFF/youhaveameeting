@@ -8,3 +8,6 @@ build/
 
 # macOS
 .DS_Store
+
+# CodeGraph local index (SQLite database, daemon socket and pid)
+.codegraph/
