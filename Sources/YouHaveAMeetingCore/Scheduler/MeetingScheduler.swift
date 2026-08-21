@@ -88,7 +88,8 @@ final class MeetingScheduler {
             in: meetings,
             now: .now,
             leadOffset: settings.value.leadOffset,
-            fired: firedLog.keys
+            fired: firedLog.keys,
+            alertUnconfirmed: settings.value.alertUnconfirmedInvitations
         ) else {
             setUpcoming(nil)
             return

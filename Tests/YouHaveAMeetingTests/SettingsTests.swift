@@ -24,6 +24,21 @@ struct SettingsTests {
         #expect(decoded.leadOffsetSeconds == -30)
         #expect(decoded.pollIntervalSeconds == Settings().pollIntervalSeconds)
         #expect(decoded.silenceWhenMicActive)
+        // Absent from an older file, so it must land on the default rather
+        // than silently turning alerts off for unanswered invitations.
+        #expect(decoded.alertUnconfirmedInvitations)
+    }
+
+    @Test("the unconfirmed-invitation choice round-trips")
+    func unconfirmedInvitations() throws {
+        #expect(Settings().alertUnconfirmedInvitations)
+
+        var settings = Settings()
+        settings.alertUnconfirmedInvitations = false
+        let data = try JSONEncoder().encode(settings)
+        let decoded = try JSONDecoder().decode(Settings.self, from: data)
+
+        #expect(!decoded.alertUnconfirmedInvitations)
     }
 }
 

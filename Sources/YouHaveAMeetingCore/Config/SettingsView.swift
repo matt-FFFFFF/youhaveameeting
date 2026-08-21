@@ -87,6 +87,21 @@ private struct AlertSettingsView: View {
                 }
             }
 
+            Section("Invitations") {
+                Toggle(
+                    "Alert for tentative and unanswered invitations",
+                    isOn: settings.binding(\.alertUnconfirmedInvitations)
+                )
+                Text(
+                    """
+                    Meetings you have declined never alert. Turn this off to \
+                    hear only from the ones you accepted.
+                    """
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            }
+
             // Named for the mode that uses them. Left editable in the other
             // modes rather than greyed: they are still worth setting up for
             // when Automatic comes back, and the section title already says

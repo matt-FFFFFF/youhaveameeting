@@ -10,6 +10,9 @@ struct Meeting: Identifiable, Equatable, Sendable {
     let organiser: String?
     let joinURL: URL?
     let accountID: String
+    /// The user's own answer to the invitation. Defaults to `.accepted`, which
+    /// is what an event with no invitation to answer amounts to.
+    let response: MeetingResponse
 
     init(
         id: String,
@@ -18,7 +21,8 @@ struct Meeting: Identifiable, Equatable, Sendable {
         end: Date,
         organiser: String? = nil,
         joinURL: URL? = nil,
-        accountID: String = ""
+        accountID: String = "",
+        response: MeetingResponse = .accepted
     ) {
         self.id = id
         self.title = title
@@ -27,5 +31,6 @@ struct Meeting: Identifiable, Equatable, Sendable {
         self.organiser = organiser
         self.joinURL = joinURL
         self.accountID = accountID
+        self.response = response
     }
 }

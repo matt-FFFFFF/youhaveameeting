@@ -67,6 +67,15 @@ struct GoogleCalendarProvider: CalendarProvider {
         let hangoutLink: String?
         let organizer: Organizer?
         let conferenceData: ConferenceData?
+        fileprivate let attendees: [Attendee]?
+
+        /// Google marks the user's own attendee row with `self`. An event with
+        /// no attendee list is one the user owns outright - there is no
+        /// invitation to answer, so it counts as accepted.
+        var response: MeetingResponse {
+            guard let mine = attendees?.first(where: { $0.isSelf == true }) else { return .accepted }
+            return MeetingResponse(google: mine.responseStatus)
+        }
 
         func meeting(accountID: String, parser: MeetingLinkParser) -> Meeting? {
             // All-day events carry `date` instead of `dateTime` and never need
@@ -84,7 +93,8 @@ struct GoogleCalendarProvider: CalendarProvider {
                 end: endDate,
                 organiser: organizer?.displayName ?? organizer?.email,
                 joinURL: joinURL,
-                accountID: accountID
+                accountID: accountID,
+                response: response
             )
         }
     }
@@ -114,5 +124,35 @@ struct GoogleCalendarProvider: CalendarProvider {
     struct EntryPoint: Decodable {
         let entryPointType: String?
         let uri: String?
+    }
+}
+
+/// One row of an event's attendee list.
+///
+/// File scope rather than nested with the other wire types: inside the
+/// provider its `CodingKeys` would sit two levels deep, which the lint config
+/// forbids.
+private struct Attendee: Decodable {
+    let isSelf: Bool?
+    let responseStatus: String?
+
+    /// `self` cannot be spelled as a property name, so it is mapped.
+    enum CodingKeys: String, CodingKey {
+        case isSelf = "self"
+        case responseStatus
+    }
+}
+
+/// Google's `attendee.responseStatus` vocabulary. Anything unrecognised is
+/// treated as accepted: alarming for a meeting the user did not want is a far
+/// smaller failure than staying silent for one they did.
+private extension MeetingResponse {
+    init(google raw: String?) {
+        switch raw {
+        case "declined": self = .declined
+        case "tentative": self = .tentative
+        case "needsAction": self = .needsAction
+        default: self = .accepted
+        }
     }
 }

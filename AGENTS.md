@@ -104,6 +104,7 @@ depend on a drawing step. Re-run `make icons` after changing the mark.
 These are pure functions or pure decoding, and are where new logic belongs:
 
 `MeetingSchedule.next` · `SilencePolicy.decide` ·
+`MeetingResponse.shouldAlert` ·
 `MenuBarIconState.current`/`nextTimeDrivenChange` ·
 `EscalationSchedule.offset`/`gap` · `MeetingLinkParser` ·
 `PresenceMonitor.isSharing(windows:)` · `PresenceObserver.Subscription.init` ·
@@ -125,6 +126,15 @@ Breaking one of these breaks the product, not just a test.
   and not the other would have reported "Microphone in use" beside a takeover.
   `SilenceDecision.reason` is non-nil exactly when the style is `.banner`, and
   a property test asserts that.
+- **A declined meeting never alarms.** That is what declining means, so it is
+  not a setting. Tentative and unanswered invitations are the real judgement
+  call and those do get a setting (`alertUnconfirmedInvitations`, on by
+  default). Declined meetings are filtered in `MeetingSchedule.next` rather
+  than dropped during decoding, so they still appear in the menu — the user has
+  not stopped caring that the meeting exists, only that it should interrupt
+  them. `CalendarService.merge` therefore keeps the most committed copy when
+  two accounts disagree; keeping the declined one would silence a meeting the
+  user accepted elsewhere.
 - **Alerts never auto-dismiss.** They end only on Join, Snooze or Dismiss. An
   alert that disappears on its own is the failure the app exists to fix.
 - **`FiredLog` keys on meeting id *and* start time**, so a rescheduled meeting

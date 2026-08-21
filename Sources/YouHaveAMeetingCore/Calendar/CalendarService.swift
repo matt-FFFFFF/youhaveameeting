@@ -49,17 +49,29 @@ actor CalendarService {
     }
 
     /// The same meeting often appears on two connected accounts. Collapse by
-    /// title and start so it only alarms once, preferring the copy that has a
-    /// join link.
+    /// title and start so it only alarms once, keeping the most useful copy.
     static func merge(_ meetings: [Meeting]) -> [Meeting] {
         var best: [String: Meeting] = [:]
         for meeting in meetings {
             let key = "\(meeting.title)|\(meeting.start.timeIntervalSince1970)"
-            if let existing = best[key], existing.joinURL != nil || meeting.joinURL == nil {
+            if let existing = best[key], !prefers(meeting, over: existing) {
                 continue
             }
             best[key] = meeting
         }
         return best.values.sorted { $0.start < $1.start }
+    }
+
+    /// Which copy survives the collapse.
+    ///
+    /// The answer the user actually committed to wins first: declining on one
+    /// account and accepting on another means they are going, and keeping the
+    /// declined copy would silence a meeting they intend to attend. A join
+    /// link only breaks the tie between copies that say the same thing.
+    private static func prefers(_ candidate: Meeting, over existing: Meeting) -> Bool {
+        guard candidate.response == existing.response else {
+            return candidate.response > existing.response
+        }
+        return existing.joinURL == nil && candidate.joinURL != nil
     }
 }

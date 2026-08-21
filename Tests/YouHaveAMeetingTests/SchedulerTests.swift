@@ -4,12 +4,17 @@ import Testing
 
 private let base = Date(timeIntervalSince1970: 1_800_000_000)
 
-private func meeting(_ id: String, minutesFromBase: Double) -> Meeting {
+private func meeting(
+    _ id: String,
+    minutesFromBase: Double,
+    response: MeetingResponse = .accepted
+) -> Meeting {
     Meeting(
         id: id,
         title: id,
         start: base.addingTimeInterval(minutesFromBase * 60),
-        end: base.addingTimeInterval((minutesFromBase + 30) * 60)
+        end: base.addingTimeInterval((minutesFromBase + 30) * 60),
+        response: response
     )
 }
 
@@ -138,5 +143,52 @@ struct FiredLogTests {
         log.record(one, at: base)
         log.prune(now: base.addingTimeInterval(86400 * 3))
         #expect(!log.contains(one))
+    }
+}
+
+@Suite("Invitation response gating")
+struct InvitationResponseTests {
+    private func next(_ meetings: [Meeting], alertUnconfirmed: Bool = true) -> Meeting? {
+        MeetingSchedule.next(
+            in: meetings,
+            now: base,
+            leadOffset: 0,
+            fired: [],
+            alertUnconfirmed: alertUnconfirmed
+        )
+    }
+
+    @Test("a declined meeting never fires, whatever the setting says")
+    func declinedNeverFires() {
+        let declined = [meeting("declined", minutesFromBase: 10, response: .declined)]
+        #expect(next(declined) == nil)
+        #expect(next(declined, alertUnconfirmed: false) == nil)
+    }
+
+    @Test("a declined meeting is skipped over, not treated as the end of the list")
+    func skipsToTheNextAcceptable() {
+        let picked = next([
+            meeting("declined", minutesFromBase: 10, response: .declined),
+            meeting("accepted", minutesFromBase: 20)
+        ])
+        #expect(picked?.id == "accepted")
+    }
+
+    @Test("tentative and unanswered follow the setting")
+    func unconfirmedFollowsSetting() {
+        for response in [MeetingResponse.tentative, .needsAction] {
+            let meetings = [meeting("maybe", minutesFromBase: 10, response: response)]
+            #expect(next(meetings)?.id == "maybe")
+            #expect(next(meetings, alertUnconfirmed: false) == nil)
+        }
+    }
+
+    @Test("turning the setting off still fires for accepted meetings")
+    func acceptedAlwaysFires() {
+        let picked = next(
+            [meeting("accepted", minutesFromBase: 10)],
+            alertUnconfirmed: false
+        )
+        #expect(picked?.id == "accepted")
     }
 }

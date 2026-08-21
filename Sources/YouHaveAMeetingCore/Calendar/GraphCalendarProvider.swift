@@ -66,6 +66,7 @@ struct GraphCalendarProvider: CalendarProvider {
         let onlineMeeting: OnlineMeeting?
         let location: Location?
         let organizer: Recipient?
+        let responseStatus: ResponseStatus?
 
         func meeting(accountID: String, parser: MeetingLinkParser) -> Meeting? {
             guard isAllDay != true,
@@ -84,7 +85,8 @@ struct GraphCalendarProvider: CalendarProvider {
                 end: endDate,
                 organiser: organizer?.emailAddress?.name ?? organizer?.emailAddress?.address,
                 joinURL: joinURL,
-                accountID: accountID
+                accountID: accountID,
+                response: MeetingResponse(graph: responseStatus?.response)
             )
         }
     }
@@ -110,8 +112,29 @@ struct GraphCalendarProvider: CalendarProvider {
         let emailAddress: EmailAddress?
     }
 
+    /// Graph reports the user's own answer on the event itself, so unlike
+    /// Google there is no attendee list to search.
+    struct ResponseStatus: Decodable {
+        let response: String?
+    }
+
     struct EmailAddress: Decodable {
         let name: String?
         let address: String?
+    }
+}
+
+/// Graph's `responseStatus.response` vocabulary. `organizer` and `none` mean
+/// there was nothing to answer. Anything unrecognised is treated as accepted:
+/// alarming for a meeting the user did not want is a far smaller failure than
+/// staying silent for one they did.
+private extension MeetingResponse {
+    init(graph raw: String?) {
+        switch raw {
+        case "declined": self = .declined
+        case "tentativelyAccepted": self = .tentative
+        case "notResponded": self = .needsAction
+        default: self = .accepted
+        }
     }
 }

@@ -18,14 +18,21 @@ enum MeetingSchedule {
     ///
     /// Includes meetings whose fire time has just passed, so a machine waking
     /// from sleep still alarms rather than silently skipping.
+    ///
+    /// Meetings the user has turned down are skipped here rather than dropped
+    /// on the way in, so they still appear in the menu - the user has not
+    /// stopped caring that the meeting exists, only that it should interrupt
+    /// them.
     static func next(
         in meetings: [Meeting],
         now: Date,
         leadOffset: TimeInterval,
         fired: Set<String>,
+        alertUnconfirmed: Bool = true,
         grace: TimeInterval = overdueGrace
     ) -> Meeting? {
         meetings
+            .filter { $0.response.shouldAlert(includingUnconfirmed: alertUnconfirmed) }
             .filter { !fired.contains(key(for: $0)) }
             .filter { fireTime(for: $0, leadOffset: leadOffset) >= now.addingTimeInterval(-grace) }
             .min { lhs, rhs in

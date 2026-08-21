@@ -113,7 +113,20 @@ struct GoogleDecodingTests {
        "location":"https://acme.zoom.us/j/9876543210?pwd=xyz"},
       {"id":"ev4","summary":"No link",
        "start":{"dateTime":"2026-08-20T16:00:00Z"},
-       "end":{"dateTime":"2026-08-20T16:30:00Z"}}
+       "end":{"dateTime":"2026-08-20T16:30:00Z"}},
+      {"id":"ev5","summary":"Declined",
+       "start":{"dateTime":"2026-08-20T17:00:00Z"},
+       "end":{"dateTime":"2026-08-20T17:30:00Z"},
+       "attendees":[{"email":"alice@example.com","responseStatus":"accepted"},
+                    {"email":"me@example.com","self":true,"responseStatus":"declined"}]},
+      {"id":"ev6","summary":"Tentative",
+       "start":{"dateTime":"2026-08-20T18:00:00Z"},
+       "end":{"dateTime":"2026-08-20T18:30:00Z"},
+       "attendees":[{"email":"me@example.com","self":true,"responseStatus":"tentative"}]},
+      {"id":"ev7","summary":"Unanswered",
+       "start":{"dateTime":"2026-08-20T19:00:00Z"},
+       "end":{"dateTime":"2026-08-20T19:30:00Z"},
+       "attendees":[{"email":"me@example.com","self":true,"responseStatus":"needsAction"}]}
     ]}
     """.utf8)
 
@@ -123,7 +136,7 @@ struct GoogleDecodingTests {
 
     @Test("skips all-day events")
     func skipsAllDay() {
-        #expect(meetings.map(\.id) == ["ev1", "ev3", "ev4"])
+        #expect(meetings.map(\.id) == ["ev1", "ev3", "ev4", "ev5", "ev6", "ev7"])
     }
 
     @Test("prefers the video conference entry point")
@@ -151,6 +164,23 @@ struct GoogleDecodingTests {
         #expect(meetings.first?.start == iso("2026-08-20T09:00:00+01:00"))
         #expect(meetings.first?.organiser == "Alice")
     }
+
+    @Test("reads the response from the user's own attendee row")
+    func ownResponse() {
+        #expect(meetings.first { $0.id == "ev5" }?.response == .declined)
+        #expect(meetings.first { $0.id == "ev6" }?.response == .tentative)
+        #expect(meetings.first { $0.id == "ev7" }?.response == .needsAction)
+    }
+
+    @Test("an event with no attendees is the user's own, so accepted")
+    func noAttendees() {
+        #expect(meetings.first { $0.id == "ev4" }?.response == .accepted)
+    }
+
+    @Test("keeps declined meetings, so they still show in the menu")
+    func declinedStillDecoded() {
+        #expect(meetings.contains { $0.id == "ev5" })
+    }
 }
 
 @Suite("Graph decoding")
@@ -168,7 +198,23 @@ struct GraphDecodingTests {
       {"id":"g3","subject":"Legacy link","isAllDay":false,
        "start":{"dateTime":"2026-08-20T15:00:00.0000000","timeZone":"UTC"},
        "end":{"dateTime":"2026-08-20T15:30:00.0000000","timeZone":"UTC"},
-       "bodyPreview":"dial in via https://acme.zoom.us/j/555"}
+       "bodyPreview":"dial in via https://acme.zoom.us/j/555"},
+      {"id":"g4","subject":"Declined","isAllDay":false,
+       "start":{"dateTime":"2026-08-20T16:00:00.0000000","timeZone":"UTC"},
+       "end":{"dateTime":"2026-08-20T16:30:00.0000000","timeZone":"UTC"},
+       "responseStatus":{"response":"declined","time":"2026-08-19T10:00:00Z"}},
+      {"id":"g5","subject":"Maybe","isAllDay":false,
+       "start":{"dateTime":"2026-08-20T17:00:00.0000000","timeZone":"UTC"},
+       "end":{"dateTime":"2026-08-20T17:30:00.0000000","timeZone":"UTC"},
+       "responseStatus":{"response":"tentativelyAccepted"}},
+      {"id":"g6","subject":"Unanswered","isAllDay":false,
+       "start":{"dateTime":"2026-08-20T18:00:00.0000000","timeZone":"UTC"},
+       "end":{"dateTime":"2026-08-20T18:30:00.0000000","timeZone":"UTC"},
+       "responseStatus":{"response":"notResponded"}},
+      {"id":"g7","subject":"Mine","isAllDay":false,
+       "start":{"dateTime":"2026-08-20T19:00:00.0000000","timeZone":"UTC"},
+       "end":{"dateTime":"2026-08-20T19:30:00.0000000","timeZone":"UTC"},
+       "responseStatus":{"response":"organizer"}}
     ]}
     """.utf8)
 
@@ -178,7 +224,7 @@ struct GraphDecodingTests {
 
     @Test("skips all-day events")
     func skipsAllDay() {
-        #expect(meetings.map(\.id) == ["g1", "g3"])
+        #expect(meetings.map(\.id) == ["g1", "g3", "g4", "g5", "g6", "g7"])
     }
 
     @Test("uses onlineMeeting.joinUrl")
@@ -197,20 +243,39 @@ struct GraphDecodingTests {
 
     @Test("falls back to parsing the body preview")
     func bodyFallback() {
-        #expect(meetings.last?.joinURL?.absoluteString == "https://acme.zoom.us/j/555")
+        let legacy = meetings.first { $0.id == "g3" }
+        #expect(legacy?.joinURL?.absoluteString == "https://acme.zoom.us/j/555")
+    }
+
+    @Test("reads the response the event reports for the user")
+    func ownResponse() {
+        #expect(meetings.first { $0.id == "g4" }?.response == .declined)
+        #expect(meetings.first { $0.id == "g5" }?.response == .tentative)
+        #expect(meetings.first { $0.id == "g6" }?.response == .needsAction)
+    }
+
+    @Test("organizer and a missing status both mean there was nothing to answer")
+    func nothingToAnswer() {
+        #expect(meetings.first { $0.id == "g7" }?.response == .accepted)
+        #expect(meetings.first { $0.id == "g1" }?.response == .accepted)
     }
 }
 
 @Suite("CalendarService merge")
 struct CalendarMergeTests {
-    private func meeting(_ id: String, link: String?) -> Meeting {
+    private func meeting(
+        _ id: String,
+        link: String?,
+        response: MeetingResponse = .accepted
+    ) -> Meeting {
         Meeting(
             id: id,
             title: "Weekly sync",
             start: iso("2026-08-20T10:00:00Z"),
             end: iso("2026-08-20T10:30:00Z"),
             joinURL: link.flatMap(URL.init(string:)),
-            accountID: id
+            accountID: id,
+            response: response
         )
     }
 
@@ -236,6 +301,24 @@ struct CalendarMergeTests {
             meeting("b", link: "https://meet.google.com/abc-defg-hij")
         ])
         #expect(linkSecond.first?.joinURL != nil)
+    }
+
+    @Test("the answer the user committed to outranks a join link")
+    func prefersCommittedResponse() {
+        // Declined on one account, accepted on another: the user is going, so
+        // the declined copy must not be the one that survives and silences it.
+        let linkOnDeclined = CalendarService.merge([
+            meeting("a", link: "https://meet.google.com/abc-defg-hij", response: .declined),
+            meeting("b", link: nil, response: .accepted)
+        ])
+        #expect(linkOnDeclined.count == 1)
+        #expect(linkOnDeclined.first?.response == .accepted)
+
+        let reversed = CalendarService.merge([
+            meeting("b", link: nil, response: .accepted),
+            meeting("a", link: "https://meet.google.com/abc-defg-hij", response: .declined)
+        ])
+        #expect(reversed.first?.response == .accepted)
     }
 
     @Test("returns meetings in start order")

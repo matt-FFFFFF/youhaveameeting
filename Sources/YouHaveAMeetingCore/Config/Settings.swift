@@ -22,6 +22,14 @@ struct Settings: Codable, Equatable, Sendable {
     /// Manual override, chosen from the menu bar or settings window.
     var presenceMode: PresenceMode = .automatic
 
+    /// Whether an invitation the user has not accepted still alarms.
+    ///
+    /// Declined meetings never alarm and there is no setting for that - it is
+    /// not a preference, it is what declining means. Tentative and unanswered
+    /// are the genuine judgement call, so they get the toggle. On by default,
+    /// which is how every build before this one behaved.
+    var alertUnconfirmedInvitations: Bool = true
+
     /// OAuth client credentials, per installation rather than compiled in.
     ///
     /// `googleClientSecret` is required: Google's token endpoint rejects
@@ -87,6 +95,10 @@ struct Settings: Codable, Equatable, Sendable {
             ) ?? false
             presenceMode = wasPresenting ? .presenting : fallback.presenceMode
         }
+        alertUnconfirmedInvitations = try value(
+            .alertUnconfirmedInvitations,
+            default: fallback.alertUnconfirmedInvitations
+        )
         googleClientID = try value(.googleClientID, default: fallback.googleClientID)
         googleClientSecret = try value(.googleClientSecret, default: fallback.googleClientSecret)
         microsoftClientID = try value(.microsoftClientID, default: fallback.microsoftClientID)
