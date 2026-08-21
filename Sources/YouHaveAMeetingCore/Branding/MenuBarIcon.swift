@@ -1,6 +1,6 @@
 import AppKit
 
-/// Renders the four menu-bar glyphs from `BellGlyph`.
+/// Renders the menu-bar glyphs from `BellGlyph`.
 ///
 /// Template images, so macOS handles light, dark and the highlighted menu
 /// state. Nothing here chooses a colour: state is carried by shape and fill
@@ -23,7 +23,10 @@ enum MenuBarIcon {
     }
 
     private static func draw(_ state: MenuBarIconState, in rect: CGRect, context: CGContext) {
-        let paths = BellGlyph.paths(in: rect, withRings: state == .alerting)
+        // Fit to the wider box whenever the arcs are drawn, so a ringed state
+        // is the same overall size as a plain one and the glyph never jumps.
+        let hasRings = state == .alerting || state == .forced
+        let paths = BellGlyph.paths(in: rect, withRings: hasRings)
         let stroke = BellGlyph.strokeWidth * paths.unit
 
         context.setFillColor(.black)
@@ -32,15 +35,20 @@ enum MenuBarIcon {
         context.setLineCap(.round)
         context.setLineJoin(.round)
 
+        // Fill says "now", the arcs say "will ring". Forced is the outline
+        // bell with arcs - it will ring, guaranteed - which keeps it distinct
+        // from alerting, where a filled bell says one is ringing already.
         switch state {
         case .idle, .quiet:
             outline(paths, in: context)
+        case .forced:
+            outline(paths, in: context)
+            rings(paths, in: context)
         case .imminent:
             solid(paths, in: context)
         case .alerting:
             solid(paths, in: context)
-            context.addPath(paths.rings)
-            context.strokePath()
+            rings(paths, in: context)
         }
 
         if state == .quiet {
@@ -58,6 +66,11 @@ enum MenuBarIcon {
         context.addPath(paths.body)
         context.addPath(paths.clapper)
         context.fillPath()
+    }
+
+    private static func rings(_ paths: BellGlyph.Paths, in context: CGContext) {
+        context.addPath(paths.rings)
+        context.strokePath()
     }
 
     /// The mute diagonal, cut clear of the bell before being drawn.

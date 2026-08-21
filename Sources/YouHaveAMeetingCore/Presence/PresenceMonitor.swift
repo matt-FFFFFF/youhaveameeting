@@ -23,24 +23,115 @@ enum PresenceMonitor {
         )
     }
 
-    // MARK: - Microphone
+    // MARK: - Property addresses
 
-    /// True when any input device is running for some process.
-    ///
-    /// This reads device properties only. It does not open a stream and does
-    /// not require microphone permission.
-    static func isMicrophoneInUse() -> Bool {
-        audioDevices().contains { device in
-            hasInputStreams(device) && isRunningSomewhere(device)
-        }
-    }
+    // Shared with `PresenceObserver`, so the property that is read and the
+    // property that is watched cannot drift apart. Computed rather than stored
+    // because a C struct is not `Sendable`, and every caller needs a mutable
+    // copy to take the address of anyway.
 
-    private static func audioDevices() -> [AudioDeviceID] {
-        var address = AudioObjectPropertyAddress(
+    static var audioDeviceListAddress: AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDevices,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
+    }
+
+    static var audioRunningAddress: AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+    }
+
+    static var cameraDeviceListAddress: CMIOObjectPropertyAddress {
+        CMIOObjectPropertyAddress(
+            mSelector: CMIOObjectPropertySelector(kCMIOHardwarePropertyDevices),
+            mScope: CMIOObjectPropertyScope(kCMIOObjectPropertyScopeGlobal),
+            mElement: CMIOObjectPropertyElement(kCMIOObjectPropertyElementMain)
+        )
+    }
+
+    static var cameraRunningAddress: CMIOObjectPropertyAddress {
+        CMIOObjectPropertyAddress(
+            mSelector: CMIOObjectPropertySelector(kCMIODevicePropertyDeviceIsRunningSomewhere),
+            mScope: CMIOObjectPropertyScope(kCMIOObjectPropertyScopeWildcard),
+            mElement: CMIOObjectPropertyElement(kCMIOObjectPropertyElementWildcard)
+        )
+    }
+
+    // MARK: - Microphone
+
+    /// True when some process is capturing audio input.
+    ///
+    /// Asks which *processes* are recording, not which devices are running.
+    /// `kAudioDevicePropertyDeviceIsRunningSomewhere` is a device-wide flag
+    /// whose scope is not honoured - measured on a duplex interface, it reads
+    /// true on the input, output and global scopes alike - so anything playing
+    /// through an audio interface was indistinguishable from being in a call,
+    /// and quietened alerts that should have taken the screen.
+    ///
+    /// Reads properties only: no stream is opened, so this needs no microphone
+    /// permission and lights no recording indicator. If the process list cannot
+    /// be read at all this reports false, which errs towards the full takeover -
+    /// the safe direction for an app whose job is not to be missed.
+    static func isMicrophoneInUse() -> Bool {
+        audioProcesses().contains { isCapturingInput($0) }
+    }
+
+    /// Every process CoreAudio knows about.
+    ///
+    /// Only their input flag is ever read. Nothing identifies them - no bundle
+    /// id, no pid - because the count of capturing processes is the whole
+    /// question and their names are none of this app's business.
+    private static func audioProcesses() -> [AudioObjectID] {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyProcessObjectList,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size
+        ) == noErr, size > 0 else { return [] }
+
+        let count = Int(size) / MemoryLayout<AudioObjectID>.size
+        var processes = [AudioObjectID](repeating: 0, count: count)
+        guard AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &processes
+        ) == noErr else { return [] }
+        return processes
+    }
+
+    private static func isCapturingInput(_ process: AudioObjectID) -> Bool {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioProcessPropertyIsRunningInput,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var capturing: UInt32 = 0
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(
+            process, &address, 0, nil, &size, &capturing
+        ) == noErr else { return false }
+        return capturing != 0
+    }
+
+    /// Every audio device with at least one input channel.
+    ///
+    /// No longer the answer to "is the microphone in use" - it is the set
+    /// `PresenceObserver` watches to know *when* to ask that question again.
+    /// The per-process flags are readable but publish no notifications
+    /// (measured: the flag flips, a registered listener never fires), so the
+    /// device properties, which do notify, are what wakes the glyph.
+    static func inputDevices() -> [AudioDeviceID] {
+        audioDevices().filter(hasInputStreams)
+    }
+
+    private static func audioDevices() -> [AudioDeviceID] {
+        var address = audioDeviceListAddress
         var size: UInt32 = 0
         guard AudioObjectGetPropertyDataSize(
             AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size
@@ -81,11 +172,7 @@ enum PresenceMonitor {
     }
 
     private static func isRunningSomewhere(_ device: AudioDeviceID) -> Bool {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
+        var address = audioRunningAddress
         var running: UInt32 = 0
         var size = UInt32(MemoryLayout<UInt32>.size)
         guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &running) == noErr else {
@@ -97,32 +184,32 @@ enum PresenceMonitor {
     // MARK: - Camera
 
     static func isCameraInUse() -> Bool {
-        var address = CMIOObjectPropertyAddress(
-            mSelector: CMIOObjectPropertySelector(kCMIOHardwarePropertyDevices),
-            mScope: CMIOObjectPropertyScope(kCMIOObjectPropertyScopeGlobal),
-            mElement: CMIOObjectPropertyElement(kCMIOObjectPropertyElementMain)
-        )
+        cameraDevices().contains { isCameraRunning($0) }
+    }
+
+    /// Every camera the system knows about.
+    ///
+    /// Internal for the same reason as `inputDevices`. Enumerating these reads
+    /// properties only - it opens no stream, so it neither prompts for camera
+    /// permission nor lights the recording indicator.
+    static func cameraDevices() -> [CMIOObjectID] {
+        var address = cameraDeviceListAddress
         var size: UInt32 = 0
         guard CMIOObjectGetPropertyDataSize(
             CMIOObjectID(kCMIOObjectSystemObject), &address, 0, nil, &size
-        ) == noErr, size > 0 else { return false }
+        ) == noErr, size > 0 else { return [] }
 
         let count = Int(size) / MemoryLayout<CMIOObjectID>.size
         var devices = [CMIOObjectID](repeating: 0, count: count)
         var used: UInt32 = 0
         guard CMIOObjectGetPropertyData(
             CMIOObjectID(kCMIOObjectSystemObject), &address, 0, nil, size, &used, &devices
-        ) == noErr else { return false }
-
-        return devices.contains { isCameraRunning($0) }
+        ) == noErr else { return [] }
+        return devices
     }
 
     private static func isCameraRunning(_ device: CMIOObjectID) -> Bool {
-        var address = CMIOObjectPropertyAddress(
-            mSelector: CMIOObjectPropertySelector(kCMIODevicePropertyDeviceIsRunningSomewhere),
-            mScope: CMIOObjectPropertyScope(kCMIOObjectPropertyScopeWildcard),
-            mElement: CMIOObjectPropertyElement(kCMIOObjectPropertyElementWildcard)
-        )
+        var address = cameraRunningAddress
         var running: UInt32 = 0
         var used: UInt32 = 0
         let size = UInt32(MemoryLayout<UInt32>.size)

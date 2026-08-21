@@ -36,7 +36,7 @@ about it. Each flag exercises the production path, not a parallel one.
 ```sh
 APP="build/You Have a Meeting.app/Contents/MacOS/YouHaveAMeeting"
 "$APP" --list-meetings [--verbose]   # fetch + what the scheduler would arm
-"$APP" --presence                    # live signals and the style they produce
+"$APP" --presence                    # live signals, what is watched, resulting style
 "$APP" --windows                     # on-screen windows, to find share markers
 "$APP" --keychain-selftest           # which keychain backends this build can use
 "$APP" --settings                    # open the settings window at launch
@@ -103,10 +103,11 @@ depend on a drawing step. Re-run `make icons` after changing the mark.
 
 These are pure functions or pure decoding, and are where new logic belongs:
 
-`MeetingSchedule.next` · `SilencePolicy.style`/`reason` ·
+`MeetingSchedule.next` · `SilencePolicy.decide` ·
 `MenuBarIconState.current`/`nextTimeDrivenChange` ·
 `EscalationSchedule.offset`/`gap` · `MeetingLinkParser` ·
-`PresenceMonitor.isSharing(windows:)` · `Google/GraphCalendarProvider.decode` ·
+`PresenceMonitor.isSharing(windows:)` · `PresenceObserver.Subscription.init` ·
+`Google/GraphCalendarProvider.decode` ·
 `OAuthClient.formEncoded` · `LoopbackServer.queryItems(fromRequestHead:)`
 
 ## Invariants
@@ -115,8 +116,15 @@ Breaking one of these breaks the product, not just a test.
 
 - **No sensor combination is ever fully silent.** The quietest inferred outcome
   is a banner. `PresenceMode` deliberately has no "do not disturb" case; a
-  fully silent state was proposed and rejected. A property test asserts this
-  across all signals × all modes.
+  fully silent state was proposed and rejected. Its three cases are Automatic,
+  Presenting (always a banner) and Full Screen (always a takeover) — the
+  override points both ways, but never towards nothing. A property test asserts
+  this across all signals × all modes.
+- **`SilencePolicy` decides style and reason in one pass.** They were two
+  parallel cascades and could have come to disagree — a mode that skipped one
+  and not the other would have reported "Microphone in use" beside a takeover.
+  `SilenceDecision.reason` is non-nil exactly when the style is `.banner`, and
+  a property test asserts that.
 - **Alerts never auto-dismiss.** They end only on Join, Snooze or Dismiss. An
   alert that disappears on its own is the failure the app exists to fix.
 - **`FiredLog` keys on meeting id *and* start time**, so a rescheduled meeting
@@ -176,16 +184,57 @@ diagnose; do not re-derive them.
   setting and no publisher verification alters — and multi-tenant additionally
   fails the verified-publisher gate that a registration in your own tenant
   passes for free. SETUP.md explains this to users.
-- **Presence is sampled, never polled.** The menu-bar glyph's quiet state is
-  read at the moments something already happens - the menu opening, the next
-  meeting changing, an alert appearing, the five-minute warning starting - so
-  it can lag a call that begins while nothing else is going on. Adding a poll
-  to close that gap would undo `PresenceMonitor`'s on-demand design.
+- **Presence is subscribed or sampled, never polled.** `PresenceMonitor` reads
+  on demand and holds nothing. `PresenceObserver` decides *when* to read:
+  CoreAudio and CoreMediaIO publish property changes, so the microphone and
+  camera push a glyph refresh the moment they start or stop. Screen sharing has
+  no such API - the window list can only be read - so that one signal is still
+  only as fresh as the last thing that refreshed the glyph (the menu opening,
+  the next meeting changing, an alert appearing, the five-minute warning). A
+  timer to close *that* gap is the poll this design rules out.
+- **For the microphone, what is watched is not what is read.** Device
+  properties notify but cannot tell capture from playback; process properties
+  can tell them apart but do not notify (both measured - see Platform gotchas).
+  So input *devices* are the doorbell and *processes* are the answer. The gap
+  this leaves is a capture starting on a device already running for playback:
+  no device property changes, so the glyph waits for the next sample. Alerts
+  read presence fresh as they fire, so no alert is ever decided on the stale
+  reading - only the glyph can lag.
+- **Nothing is watched unless it could change the answer.** `Subscription`
+  registers listeners only in Automatic mode, and only for signals whose
+  setting is on. Presenting and Full Screen settle the outcome by themselves,
+  so they hold no listeners at all - which is also what keeps CoreMediaIO
+  untouched unless camera detection is switched on. Verified by round-tripping
+  the modes: the listener counts return exactly, which they would not if a
+  removal had silently failed and re-registration hit
+  `kAudioHardwareIllegalOperationError`.
+- **Listener callbacks hop to a task before doing anything.** A device-list
+  change re-subscribes, which tears down the very registration being delivered.
+  Hopping first means the block has returned before that happens.
 - **`CGWindowListCopyWindowInfo` never triggers a TCC check.** It silently
   returns blank titles, so an app that only calls it never appears in the Screen
   Recording list. Only `CGRequestScreenCaptureAccess()` registers it. Permission
   applies on next launch, and is per bundle path — `build/` and `/Applications`
   are separate grants.
+- **`kAudioDevicePropertyDeviceIsRunningSomewhere` has no working scope.**
+  Measured on a duplex interface (Komplete Audio 2) while only playback was
+  running: it reads true on the input, output *and* global scopes alike. It
+  says "this device is running", never "for input". Detecting the microphone
+  this way meant anything playing through an audio interface read as being in
+  a call, and quietened alerts that should have taken the screen. It was the
+  original implementation and the bug was silent for a long time, because with
+  output-only speakers as the default device it never triggers.
+- **`kAudioProcessPropertyIsRunningInput`/`IsRunningOutput` never notify.**
+  They are the only APIs that distinguish capture from playback, and they are
+  read-only in practice: `AudioObjectAddPropertyListenerBlock` returns `noErr`
+  and the block never fires. Measured by subscribing to this process's own
+  flag and toggling it - the polled value went false to true to false, with
+  zero callbacks. Do not build a subscription on them; that is what forces the
+  doorbell/answer split above.
+- **Audio *process* objects come and go.** One is created when a process starts
+  using audio and destroyed when it stops, so a short-lived player never has an
+  object at subscribe time. `kAudioHardwarePropertyProcessObjectList` *does*
+  notify, and fires twice per change.
 - **Screen-share indicator wording varies**: `is sharing your screen`,
   `is sharing a window.`, `is sharing a tab.` Match the stem. Use `--windows`
   during a real share to capture a service's actual marker rather than guessing.

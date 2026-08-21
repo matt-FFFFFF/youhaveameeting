@@ -20,7 +20,7 @@ struct Settings: Codable, Equatable, Sendable {
     var silenceWhenCameraActive: Bool = false
     var silenceWhenSharing: Bool = true
     /// Manual override, chosen from the menu bar or settings window.
-    var presenceMode: PresenceMode = .normal
+    var presenceMode: PresenceMode = .automatic
 
     /// OAuth client credentials, per installation rather than compiled in.
     ///
@@ -74,8 +74,9 @@ struct Settings: Codable, Equatable, Sendable {
             default: fallback.silenceWhenCameraActive
         )
         silenceWhenSharing = try value(.silenceWhenSharing, default: fallback.silenceWhenSharing)
-        // Migrate the old boolean: a file written before the tri-state mode
-        // existed has manualPresenting instead.
+        // Migrate the old boolean: a file written before the mode enum
+        // existed has manualPresenting instead. An unknown mode string is not a
+        // migration problem - PresenceMode absorbs that itself.
         if let mode = try container.decodeIfPresent(PresenceMode.self, forKey: .presenceMode) {
             presenceMode = mode
         } else {

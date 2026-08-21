@@ -11,14 +11,16 @@ and a single **Join** button. It stays there until you deal with it, and chimes
 at 0s, 15s, 30s, 60s and then every minute while you ignore it. Focus and Do Not
 Disturb cannot suppress it, and full-screen apps cannot cover it.
 
-If you are already in a call, sharing your screen, or have flipped the
-**Presenting** switch, it shows a small silent banner in the corner instead — so
-it never hijacks your screen share. It is never completely silent.
+If you are already in a call, sharing your screen, or have set the mode to
+**Presenting**, it shows a small silent banner in the corner instead — so it
+never hijacks your screen share. **Full Screen** mode is the other way round:
+it takes over regardless of what the sensors think. It is never completely
+silent.
 
 It is cheap to leave running: about **20 MB** of memory and **0% CPU** while it
-waits, which is nearly all the time. Presence is sampled at the moments
-something already happens rather than polled on a timer, so nothing spins in the
-background.
+waits, which is nearly all the time. Nothing polls on a timer: the microphone
+and camera tell the app when they start and stop, and everything else is read
+only at the moments something already happens.
 
 ## Requirements
 
@@ -69,8 +71,11 @@ the menu:
 - **Filled, with sound lines** — an alert is on screen and has not been dealt
   with.
 - **Outline with a slash** — alerts are quiet right now, because you are
-  presenting, in a call, or sharing your screen. The next one will be a corner
+  presenting, in a call, or sharing your screen. Playing music through an audio
+  interface does not count as being in a call. The next one will be a corner
   banner rather than a takeover.
+- **Outline with sound lines** — **Full Screen** mode is on, so the next alert
+  will take over the screen whatever you happen to be doing.
 
 ## Using it
 
@@ -79,8 +84,11 @@ Click the menu-bar icon for:
 - **Your next meeting**, and when the calendar was last checked
 - **Refresh Now** (⌘R) and **Check Every** — 1, 5, 15 or 30 minutes
 - **Accounts** — connect or disconnect calendars
-- **Presenting** — force quiet alerts, whatever the sensors think
-- **Quiet Alerts When** — in a call, camera on, sharing your screen
+- **Alert Mode** — **Automatic** lets the sensors decide, **Presenting** forces
+  the quiet banner, **Full Screen** forces the takeover
+- **Automatic Mode Detection** — in a call, camera on, sharing your screen.
+  Says "(not in use)" when the mode is Presenting or Full Screen, since nothing
+  in there decides anything then
 - **Test Notification** — fires a sample alert. The label tells you whether you
   will get the full screen or a banner, based on what you are doing right now
 - **Settings…** (⌘,)
@@ -93,7 +101,7 @@ When an alert appears: **Join** opens the meeting, **1/2/5 min** snoozes, and
 **General** — how early to alert, how often to check, how far ahead to look,
 and launch at login.
 
-**Alerts** — which situations make alerts quiet.
+**Alerts** — the alert mode, and which situations Automatic treats as quiet.
 
 **Accounts** — connect and disconnect calendars, and the client IDs from
 [SETUP.md](SETUP.md).
@@ -108,12 +116,14 @@ wins). There is a box to paste a URL and see which service it matches.
 **No alert fired.** Check the menu shows the meeting. If it says "No calendar
 connected", finish [SETUP.md](SETUP.md). If it shows a meeting but nothing
 happened, check whether the menu says "Alerts quiet: …" — you may have been in a
-call, or have **Presenting** left on.
+call, or have the mode left on **Presenting**.
 
 **It took over the screen while I was presenting.** Screen-share detection needs
 Screen Recording permission, granted to the exact copy of the app you are
-running. Menu bar → **Grant Screen Recording permission…**, then relaunch. The
-**Presenting** switch always works, permission or not.
+running. Menu bar → **Grant Screen Recording permission…**, then relaunch.
+Setting the mode to **Presenting** always works, permission or not. Also check
+the mode is not left on **Full Screen**, which overrides the detection on
+purpose.
 
 **No Join button on the alert.** The invitation had no link the app recognises.
 Settings → **Links**, paste the URL into the test box, and add a pattern for

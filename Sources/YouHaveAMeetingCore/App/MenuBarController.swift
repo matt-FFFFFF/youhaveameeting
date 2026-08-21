@@ -20,6 +20,11 @@ final class MenuBarController: NSObject {
     /// Sleeps until the moment the glyph would change on its own, mirroring
     /// how the scheduler waits for a fire time rather than polling.
     private var iconTransition: Task<Void, Never>?
+    /// Pushes microphone and camera changes, so those two do not wait for
+    /// something else to happen before the glyph catches up.
+    private lazy var presence = PresenceObserver { [weak self] in
+        self?.updateIcon()
+    }
 
     init(
         settings: SettingsStore,
@@ -40,7 +45,7 @@ final class MenuBarController: NSObject {
         menu.delegate = self
         statusItem.menu = menu
 
-        updateIcon()
+        settingsChanged()
         observeSettings()
     }
 
@@ -83,10 +88,11 @@ final class MenuBarController: NSObject {
     /// Redraw the glyph if the state it should show has changed, then sleep
     /// until the next time-driven change.
     ///
-    /// Presence is sampled here rather than watched: `PresenceMonitor` is
-    /// deliberately on-demand, so the quiet glyph is accurate whenever
-    /// something happens - the menu opening, a meeting approaching, an alert
-    /// appearing - rather than within seconds of a call starting.
+    /// Presence is read here rather than held: `PresenceMonitor` is
+    /// deliberately on-demand. `PresenceObserver` says *when* to read it for
+    /// the microphone and the camera; screen sharing has no such signal, so
+    /// that one is only as fresh as the last thing that called this - the menu
+    /// opening, a meeting approaching, an alert appearing.
     private func updateIcon() {
         let current = settings.value
         let signals = PresenceMonitor.currentSignals(settings: current)
@@ -97,7 +103,8 @@ final class MenuBarController: NSObject {
             fireTime: fireTime,
             now: .now,
             isAlerting: isAlerting,
-            isQuiet: SilencePolicy.style(for: signals, settings: current) == .banner
+            isQuiet: SilencePolicy.decide(for: signals, settings: current).style == .banner,
+            isForced: current.presenceMode == .fullScreen
         )
 
         if state != iconState {
@@ -115,20 +122,26 @@ final class MenuBarController: NSObject {
         }
     }
 
-    /// Any settings change can flip the quiet glyph - the Presenting switch and
-    /// the quiet-alert conditions both live in settings, and both can be
-    /// changed from the settings window as well as the menu. Observing the
-    /// store once covers every route.
+    /// Any settings change can flip the glyph - the alert mode and the
+    /// quiet-alert conditions both live in settings, and both can be changed
+    /// from the settings window as well as the menu. Observing the store once
+    /// covers every route, so a mode switch redraws the icon immediately.
     private func observeSettings() {
         withObservationTracking {
             _ = settings.value
         } onChange: { [weak self] in
             Task { @MainActor in
-                self?.updateIcon()
+                self?.settingsChanged()
                 // The tracking API fires once, so re-register for the next.
                 self?.observeSettings()
             }
         }
+    }
+
+    /// What settings decide: which signals are worth watching, and the glyph.
+    private func settingsChanged() {
+        presence.update(for: settings.value)
+        updateIcon()
     }
 
     // MARK: - Actions
@@ -156,8 +169,7 @@ final class MenuBarController: NSObject {
         guard let raw = sender.representedObject as? String,
               let mode = PresenceMode(rawValue: raw)
         else { return }
-        // Selecting the active mode turns it off again.
-        settings.update { $0.presenceMode = $0.presenceMode == mode ? .normal : mode }
+        settings.update { $0.presenceMode = mode }
     }
 
     @objc func toggleSilenceMic() {
@@ -221,6 +233,10 @@ final class MenuBarController: NSObject {
 
 extension MenuBarController: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
+        // Opening the menu is a sampling moment for presence, so take the
+        // glyph with it: a call that started while nothing else was happening
+        // is picked up here rather than staying stale behind the open menu.
+        updateIcon()
         rebuild(menu)
     }
 }

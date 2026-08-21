@@ -12,7 +12,8 @@ struct MenuBarIconStateTests {
             fireTime: base,
             now: base,
             isAlerting: true,
-            isQuiet: true
+            isQuiet: true,
+            isForced: false
         )
         #expect(state == .alerting)
     }
@@ -23,7 +24,8 @@ struct MenuBarIconStateTests {
             fireTime: base.addingTimeInterval(60),
             now: base,
             isAlerting: false,
-            isQuiet: true
+            isQuiet: true,
+            isForced: false
         )
         #expect(state == .quiet)
     }
@@ -34,7 +36,8 @@ struct MenuBarIconStateTests {
             fireTime: base.addingTimeInterval(MenuBarIconState.imminentLead - 1),
             now: base,
             isAlerting: false,
-            isQuiet: false
+            isQuiet: false,
+            isForced: false
         )
         #expect(state == .imminent)
     }
@@ -45,7 +48,8 @@ struct MenuBarIconStateTests {
             fireTime: base.addingTimeInterval(-30),
             now: base,
             isAlerting: false,
-            isQuiet: false
+            isQuiet: false,
+            isForced: false
         )
         #expect(state == .imminent)
     }
@@ -56,7 +60,8 @@ struct MenuBarIconStateTests {
             fireTime: base.addingTimeInterval(MenuBarIconState.imminentLead + 1),
             now: base,
             isAlerting: false,
-            isQuiet: false
+            isQuiet: false,
+            isForced: false
         )
         #expect(far == .idle)
 
@@ -64,9 +69,34 @@ struct MenuBarIconStateTests {
             fireTime: nil,
             now: base,
             isAlerting: false,
-            isQuiet: false
+            isQuiet: false,
+            isForced: false
         )
         #expect(empty == .idle)
+    }
+
+    @Test("a pinned takeover shows once nothing more urgent is happening")
+    func forcedWhenIdle() {
+        let state = MenuBarIconState.current(
+            fireTime: nil,
+            now: base,
+            isAlerting: false,
+            isQuiet: false,
+            isForced: true
+        )
+        #expect(state == .forced)
+    }
+
+    @Test("an approaching meeting outranks a pinned takeover")
+    func imminentBeatsForced() {
+        let state = MenuBarIconState.current(
+            fireTime: base.addingTimeInterval(60),
+            now: base,
+            isAlerting: false,
+            isQuiet: false,
+            isForced: true
+        )
+        #expect(state == .imminent)
     }
 
     @Test("the only time-driven change is the moment the warning starts")

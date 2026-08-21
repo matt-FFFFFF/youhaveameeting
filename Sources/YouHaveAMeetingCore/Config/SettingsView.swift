@@ -79,22 +79,32 @@ private struct AlertSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Quiet alerts when") {
-                Toggle("I'm in a call", isOn: settings.binding(\.silenceWhenMicActive))
-                Toggle("My camera is on", isOn: settings.binding(\.silenceWhenCameraActive))
-                Toggle("I'm sharing my screen", isOn: settings.binding(\.silenceWhenSharing))
-                Picker("Mode", selection: settings.binding(\.presenceMode)) {
+            Section("Alert mode") {
+                Picker("When a meeting starts", selection: settings.binding(\.presenceMode)) {
                     ForEach(PresenceMode.allCases, id: \.self) { mode in
                         Text(mode.title).tag(mode)
                     }
                 }
             }
 
+            // Named for the mode that uses them. Left editable in the other
+            // modes rather than greyed: they are still worth setting up for
+            // when Automatic comes back, and the section title already says
+            // who reads them.
+            Section("Automatic mode detection") {
+                Toggle("I'm in a call", isOn: settings.binding(\.silenceWhenMicActive))
+                Toggle("My camera is on", isOn: settings.binding(\.silenceWhenCameraActive))
+                Toggle("I'm sharing my screen", isOn: settings.binding(\.silenceWhenSharing))
+            }
+
             Section {
                 Text(
                     """
                     A quiet alert is a small banner in the corner instead of the \
-                    full-screen takeover. Alerts are never silenced completely.
+                    full-screen takeover. Automatic decides from the conditions \
+                    above; Presenting is always a banner; Full Screen always \
+                    takes over, even when it looks like you are presenting. \
+                    Alerts are never silenced completely.
                     """
                 )
                 .font(.callout)
@@ -104,7 +114,7 @@ private struct AlertSettingsView: View {
                     Label(
                         """
                         Screen Recording permission is needed to detect screen \
-                        sharing. Without it, use the Presenting toggle.
+                        sharing. Without it, switch to Presenting by hand.
                         """,
                         systemImage: "exclamationmark.triangle"
                     )

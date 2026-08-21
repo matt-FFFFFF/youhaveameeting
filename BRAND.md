@@ -43,11 +43,21 @@ alone, which survives all of that.
 | Imminent | Filled bell | Inside the five minutes before the alarm |
 | Alerting | Filled bell with two ring arcs | An alert is on screen and undismissed |
 | Quiet | Outline bell with a slash | Presenting, in a call, or sharing — the next alert will be a banner |
+| Forced | Outline bell with two ring arcs | Full Screen mode is pinned on — the next alert takes over whatever the sensors think |
 
 Precedence, when more than one could apply, is alerting → quiet → imminent →
-idle. An alert on screen is the loudest fact about the app, so it wins
+forced → idle. An alert on screen is the loudest fact about the app, so it wins
 outright. Quiet beats imminent because it changes what the next alarm will
-*do*, which matters more than knowing one is coming.
+*do*, which matters more than knowing one is coming. Forced sits below imminent
+for the same reason read the other way: it only guarantees the outcome the app
+would have reached anyway, so an approaching meeting is the better thing to
+show.
+
+Fill and arcs are two independent axes, which is what keeps five states legible
+with one mark. Fill says *now* — imminent and alerting are filled, idle and
+forced are not. The arcs say *will ring*. So forced is an outline bell that
+rings, and alerting is a filled one; at 18pt the two never collapse into each
+other.
 
 The five-minute warning is fixed rather than derived from the lead offset: the
 lead offset says when to interrupt, the warning says when to give a heads-up

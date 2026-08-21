@@ -28,31 +28,33 @@ extension MenuBarController {
     }
 
     func alertSection() -> [NSMenuItem] {
-        var items: [NSMenuItem] = []
-
-        // .normal is the absence of an override, so it needs no menu row.
-        for mode in PresenceMode.allCases where mode != .normal {
+        // All three modes, indented under a heading, rather than a submenu:
+        // switching mode is the menu's most-used action and should stay one
+        // click away. Checkmarks make the group read as a radio set.
+        var items: [NSMenuItem] = [disabledItem("Alert Mode")]
+        for mode in PresenceMode.allCases {
             let item = toggle(
                 title: mode.title,
                 isOn: settings.value.presenceMode == mode,
                 action: #selector(setPresenceMode(_:))
             )
             item.representedObject = mode.rawValue
+            item.indentationLevel = 1
             items.append(item)
         }
 
-        items.append(silenceMenuItem())
+        items.append(automaticDetectionMenuItem())
 
         // Say plainly whether the next alert would be downgraded, rather than
         // leaving the user to discover it when one fires.
         let signals = PresenceMonitor.currentSignals(settings: settings.value)
-        let style = SilencePolicy.style(for: signals, settings: settings.value)
-        if let reason = SilencePolicy.reason(for: signals, settings: settings.value) {
+        let decision = SilencePolicy.decide(for: signals, settings: settings.value)
+        if let reason = decision.reason {
             items.append(disabledItem("Alerts quiet: \(reason)"))
         }
 
         // Name the outcome so the menu says what the test will actually do.
-        let outcome = style == .takeover ? "Full Screen" : "Banner"
+        let outcome = decision.style == .takeover ? "Full Screen" : "Banner"
         let test = NSMenuItem(
             title: "Test Notification (\(outcome))",
             action: #selector(testAlert),
@@ -124,10 +126,26 @@ extension MenuBarController {
         return item
     }
 
-    func silenceMenuItem() -> NSMenuItem {
-        let item = NSMenuItem(title: "Quiet Alerts When", action: nil, keyEquivalent: "")
-        let submenu = NSMenu()
+    /// The conditions Automatic mode watches.
+    ///
+    /// Named for the mode rather than for the effect, and marked when the mode
+    /// in force makes them moot - otherwise a ticked row here reads as
+    /// something still deciding when Presenting or Full Screen has already
+    /// settled it. The rows stay live rather than greyed: they are still worth
+    /// setting up for later, and an all-disabled submenu would grey its own
+    /// parent and put them out of reach entirely.
+    func automaticDetectionMenuItem() -> NSMenuItem {
         let current = settings.value
+        let inUse = current.presenceMode == .automatic
+        let item = NSMenuItem(
+            title: inUse ? "Automatic Mode Detection" : "Automatic Mode Detection (not in use)",
+            action: nil,
+            keyEquivalent: ""
+        )
+        let submenu = NSMenu()
+        submenu.addItem(disabledItem(
+            inUse ? "Alerts go quiet when:" : "Used only in Automatic mode:"
+        ))
 
         submenu.addItem(toggle(
             title: "In a Call (microphone)",

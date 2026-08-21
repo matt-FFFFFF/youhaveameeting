@@ -4,5 +4,5 @@ struct PresenceSignals: Equatable, Sendable {
     var cameraInUse = false
     var screenBeingShared = false
     /// The manual override. Always believed, whatever the sensors say.
-    var mode: PresenceMode = .normal
+    var mode: PresenceMode = .automatic
 }

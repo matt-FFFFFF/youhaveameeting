@@ -195,8 +195,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     /// policy would do with it.
     private func presenceReport() -> String {
         let signals = PresenceMonitor.currentSignals(settings: settings.value)
-        let style = SilencePolicy.style(for: signals, settings: settings.value)
-        let reason = SilencePolicy.reason(for: signals, settings: settings.value)
+        let decision = SilencePolicy.decide(for: signals, settings: settings.value)
 
         var lines = [
             "microphone in use: \(signals.microphoneInUse)",
@@ -206,19 +205,27 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             "window titles readable: \(PresenceMonitor.canReadWindowTitles()) "
                 + "(Screen Recording permission)"
         ]
-        let outcome = style == .takeover ? "takeover" : "banner"
-        lines.append("-> alert style:    \(outcome)\(reason.map { " (\($0))" } ?? "")")
+
+        // Subscribe exactly as the menu bar does, to show what is actually
+        // being watched rather than what should be. The listeners go with the
+        // process, which terminates as soon as this is printed.
+        let observer = PresenceObserver {}
+        observer.update(for: settings.value)
+        lines.append("watching:          \(observer.summary)")
+
+        let outcome = decision.style == .takeover ? "takeover" : "banner"
+        lines.append("-> alert style:    \(outcome)\(decision.reason.map { " (\($0))" } ?? "")")
         return lines.joined(separator: "\n")
     }
 
     private func present(_ meeting: Meeting) {
         let signals = PresenceMonitor.currentSignals(settings: settings.value)
-        let style = SilencePolicy.style(for: signals, settings: settings.value)
-        if let reason = SilencePolicy.reason(for: signals, settings: settings.value) {
+        let decision = SilencePolicy.decide(for: signals, settings: settings.value)
+        if let reason = decision.reason {
             Self.log.info("alert quietened: \(reason, privacy: .public)")
         }
 
-        presenter.present(meeting, style: style) { [weak self] outcome in
+        presenter.present(meeting, style: decision.style) { [weak self] outcome in
             self?.menuBar?.setAlerting(false)
             guard case let .snoozed(seconds) = outcome else { return }
             Task { @MainActor [weak self] in

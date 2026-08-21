@@ -13,6 +13,8 @@ enum MenuBarIconState: Equatable, Sendable {
     case alerting
     /// Alerts would be downgraded to a banner - presenting, or in a call.
     case quiet
+    /// A takeover is pinned on, whatever the sensors think.
+    case forced
 
     /// How long before the alarm the glyph starts warning.
     ///
@@ -26,12 +28,18 @@ enum MenuBarIconState: Equatable, Sendable {
     /// Precedence is deliberate. An alert on screen outranks everything: it is
     /// the loudest fact about the app. Quiet outranks imminent because it
     /// changes what the next alarm will *do*, which matters more than knowing
-    /// one is coming.
+    /// one is coming. Forced sits below imminent for the same reason read the
+    /// other way: it only guarantees the outcome the app would have reached
+    /// anyway, so an approaching meeting is the better thing to show.
+    ///
+    /// `isQuiet` and `isForced` are never both true - forcing a takeover is
+    /// what stops the outcome being quiet.
     static func current(
         fireTime: Date?,
         now: Date,
         isAlerting: Bool,
-        isQuiet: Bool
+        isQuiet: Bool,
+        isForced: Bool
     ) -> MenuBarIconState {
         if isAlerting {
             return .alerting
@@ -39,10 +47,10 @@ enum MenuBarIconState: Equatable, Sendable {
         if isQuiet {
             return .quiet
         }
-        guard let fireTime, fireTime.timeIntervalSince(now) <= imminentLead else {
-            return .idle
+        if let fireTime, fireTime.timeIntervalSince(now) <= imminentLead {
+            return .imminent
         }
-        return .imminent
+        return isForced ? .forced : .idle
     }
 
     /// When the glyph would change on its own, with nothing else happening.
@@ -62,6 +70,7 @@ enum MenuBarIconState: Equatable, Sendable {
         case .imminent: "Meeting starting soon"
         case .alerting: "Meeting alert showing"
         case .quiet: "You Have a Meeting - alerts quiet"
+        case .forced: "You Have a Meeting - alerts always full screen"
         }
     }
 }
