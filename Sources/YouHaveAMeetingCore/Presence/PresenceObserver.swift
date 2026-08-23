@@ -64,6 +64,7 @@ final class PresenceObserver {
     private var subscription: Subscription?
     private var audioListeners: [AudioListener] = []
     private var cameraListeners: [CameraListener] = []
+    private var rescanTask: Task<Void, Never>?
 
     init(onChange: @escaping () -> Void) {
         self.onChange = onChange
@@ -77,6 +78,7 @@ final class PresenceObserver {
         let wanted = Subscription(settings: settings)
         guard wanted != subscription else { return }
         subscription = wanted
+        rescanTask?.cancel()
         resubscribe(wanted)
     }
 
@@ -158,9 +160,23 @@ final class PresenceObserver {
     /// Hopping to a task rather than acting inside the listener block is what
     /// makes a rescan safe: the block has returned before its own registration
     /// is torn down and rebuilt.
+    ///
+    /// The rebuild itself is debounced. CoreAudio and CoreMediaIO republish
+    /// their device lists in bursts around sleep/wake and display
+    /// reconfiguration - measured: a single physical event can fire this
+    /// listener many times in quick succession. Rebuilding synchronously on
+    /// every one of those piles up blocking CoreAudio calls on the main
+    /// thread just as CoreAudio's own internal listener dispatch is busiest,
+    /// which is what turns a device hotplug into the app going unresponsive.
+    /// Coalescing to one rebuild after the burst settles avoids that pileup.
     private func changed(rescans: Bool) {
-        if rescans, let subscription {
-            resubscribe(subscription)
+        if rescans {
+            rescanTask?.cancel()
+            rescanTask = Task { [weak self] in
+                try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled, let self, let subscription else { return }
+                resubscribe(subscription)
+            }
         }
         onChange()
     }
