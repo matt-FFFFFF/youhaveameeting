@@ -58,6 +58,10 @@ struct Settings: Codable, Equatable, Sendable {
     /// order.
     var meetingLinkProviders: [MeetingLinkProvider] = MeetingLinkProvider.defaults
 
+    /// Bundle identifier of the browser that opens meeting links; empty
+    /// means the system default.
+    var meetingLinkBrowserIdentifier: String = ""
+
     /// Keys that no longer map to a property, kept only for migration.
     private enum LegacyKeys: String, CodingKey {
         case manualPresenting
@@ -108,6 +112,7 @@ struct Settings: Codable, Equatable, Sendable {
             .meetingLinkProviders,
             default: fallback.meetingLinkProviders
         )
+        meetingLinkBrowserIdentifier = try value(.meetingLinkBrowserIdentifier, default: fallback.meetingLinkBrowserIdentifier)
     }
 }
 

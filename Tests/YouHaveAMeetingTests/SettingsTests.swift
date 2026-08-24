@@ -27,6 +27,7 @@ struct SettingsTests {
         // Absent from an older file, so it must land on the default rather
         // than silently turning alerts off for unanswered invitations.
         #expect(decoded.alertUnconfirmedInvitations)
+        #expect(decoded.meetingLinkBrowserIdentifier == "")
     }
 
     @Test("the unconfirmed-invitation choice round-trips")
@@ -39,6 +40,18 @@ struct SettingsTests {
         let decoded = try JSONDecoder().decode(Settings.self, from: data)
 
         #expect(!decoded.alertUnconfirmedInvitations)
+    }
+
+    @Test("the meeting-link browser choice round-trips")
+    func meetingLinkBrowser() throws {
+        #expect(Settings().meetingLinkBrowserIdentifier == "")
+
+        var settings = Settings()
+        settings.meetingLinkBrowserIdentifier = "com.google.Chrome"
+        let data = try JSONEncoder().encode(settings)
+        let decoded = try JSONDecoder().decode(Settings.self, from: data)
+
+        #expect(decoded.meetingLinkBrowserIdentifier == "com.google.Chrome")
     }
 }
 
