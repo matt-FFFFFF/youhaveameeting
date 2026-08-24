@@ -13,6 +13,10 @@ final class AlertPresenter {
     private var chime: NSSound?
     private var onOutcome: ((AlertOutcome) -> Void)?
 
+    /// How a Join click opens the link. Injectable so the alert can route to
+    /// the user's chosen browser; defaults to the system handler.
+    var openLink: (URL) -> Void = { NSWorkspace.shared.open($0) }
+
     var isPresenting: Bool { !shields.isEmpty || banner != nil }
 
     func present(
@@ -140,7 +144,7 @@ final class AlertPresenter {
         onOutcome = nil
         dismissWindows()
         if let url {
-            NSWorkspace.shared.open(url)
+            openLink(url)
         }
         handler?(outcome)
     }

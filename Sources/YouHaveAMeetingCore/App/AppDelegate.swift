@@ -24,6 +24,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func applicationDidFinishLaunching(_: Notification) {
+        // Before anything can present an alert: even a test alert must route
+        // through the user's chosen browser.
+        presenter.openLink = { [settings] url in
+            BrowserLauncher.open(url, preferringBundleID: settings.value.meetingLinkBrowserIdentifier)
+        }
         installMainMenu()
         menuBar = MenuBarController(
             settings: settings,
