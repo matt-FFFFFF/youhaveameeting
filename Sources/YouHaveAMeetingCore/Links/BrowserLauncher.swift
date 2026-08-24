@@ -35,14 +35,24 @@ enum BrowserLauncher {
             appURL: NSWorkspace.shared.urlForApplication(withBundleIdentifier: storedID)
         ) {
         case .systemDefault:
-            log.info("Opening link in system default browser; stored browser \(storedID, privacy: .public) is unset or not installed")
+            log.info(
+                """
+                Opening link in system default browser; \
+                stored browser \(storedID, privacy: .public) is unset or not installed
+                """
+            )
             NSWorkspace.shared.open(url)
         case let .application(app):
             log.info("Opening link in \(app.path, privacy: .public)")
             // The trailing completionHandler argument is required: without it
             // Swift resolves to the async overload, which cannot be awaited
             // from this synchronous Void function.
-            NSWorkspace.shared.open([url], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration(), completionHandler: nil)
+            NSWorkspace.shared.open(
+                [url],
+                withApplicationAt: app,
+                configuration: NSWorkspace.OpenConfiguration(),
+                completionHandler: nil
+            )
         }
     }
 }
