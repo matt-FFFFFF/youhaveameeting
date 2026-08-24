@@ -38,6 +38,8 @@ private struct GeneralSettingsView: View {
     let settings: SettingsStore
     let onScheduleAffectingChange: () -> Void
 
+    @State private var browsers: [InstalledBrowser] = []
+
     var body: some View {
         Form {
             Section("Timing") {
@@ -60,6 +62,18 @@ private struct GeneralSettingsView: View {
                 }
             }
 
+            Section("Opening links") {
+                Picker("Open links in", selection: settings.binding(\.meetingLinkBrowserIdentifier)) {
+                    Text("System default").tag("")
+                    ForEach(browsers) { browser in
+                        Text(browser.name).tag(browser.bundleIdentifier)
+                    }
+                }
+                Text("Used when you press Join on an alert.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Startup") {
                 Toggle("Launch at login", isOn: Binding(
                     get: { LoginItem.isEnabled },
@@ -68,6 +82,7 @@ private struct GeneralSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .task { browsers = BrowserLauncher.installedBrowsers() }
         .onChange(of: settings.value.pollIntervalSeconds) { onScheduleAffectingChange() }
         .onChange(of: settings.value.leadOffsetSeconds) { onScheduleAffectingChange() }
         .onChange(of: settings.value.lookaheadSeconds) { onScheduleAffectingChange() }

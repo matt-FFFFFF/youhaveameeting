@@ -99,7 +99,7 @@ When an alert appears: **Join** opens the meeting, **1/2/5 min** snoozes, and
 ## Settings (⌘,)
 
 **General** — how early to alert, how often to check, how far ahead to look,
-and launch at login.
+launch at login, and which browser meeting links open in.
 
 **Alerts** — the alert mode, and which situations Automatic treats as quiet.
 
