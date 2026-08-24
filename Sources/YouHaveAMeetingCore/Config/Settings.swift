@@ -112,7 +112,10 @@ struct Settings: Codable, Equatable, Sendable {
             .meetingLinkProviders,
             default: fallback.meetingLinkProviders
         )
-        meetingLinkBrowserIdentifier = try value(.meetingLinkBrowserIdentifier, default: fallback.meetingLinkBrowserIdentifier)
+        meetingLinkBrowserIdentifier = try value(
+            .meetingLinkBrowserIdentifier,
+            default: fallback.meetingLinkBrowserIdentifier
+        )
     }
 }
 
