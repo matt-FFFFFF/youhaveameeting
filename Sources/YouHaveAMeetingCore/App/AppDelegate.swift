@@ -29,6 +29,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         presenter.openLink = { [settings] url in
             BrowserLauncher.open(url, preferringBundleID: settings.value.meetingLinkBrowserIdentifier)
         }
+        presenter.displayScope = { [settings] in settings.value.alertDisplayScope }
         installMainMenu()
         menuBar = MenuBarController(
             settings: settings,

@@ -11,3 +11,7 @@ build/
 
 # CodeGraph local index (SQLite database, daemon socket and pid)
 .codegraph/
+
+# Oh-my-openagent and serena memory
+.omo
+.serena

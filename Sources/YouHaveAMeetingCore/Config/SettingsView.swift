@@ -102,6 +102,23 @@ private struct AlertSettingsView: View {
                 }
             }
 
+            Section("Displays") {
+                Picker("Show alerts on", selection: settings.binding(\.alertDisplayScope)) {
+                    ForEach(AlertDisplayScope.allCases, id: \.self) { scope in
+                        Text(scope.title).tag(scope)
+                    }
+                }
+                Text(
+                    """
+                    By default a takeover covers every display, and a banner \
+                    appears wherever you are working. Primary display only \
+                    keeps both to the display with the menu bar.
+                    """
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            }
+
             Section("Invitations") {
                 Toggle(
                     "Alert for tentative and unanswered invitations",

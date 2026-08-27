@@ -30,6 +30,9 @@ struct Settings: Codable, Equatable, Sendable {
     /// which is how every build before this one behaved.
     var alertUnconfirmedInvitations: Bool = true
 
+    /// Which displays show an alert - every display, or only the primary.
+    var alertDisplayScope: AlertDisplayScope = .allDisplays
+
     /// OAuth client credentials, per installation rather than compiled in.
     ///
     /// `googleClientSecret` is required: Google's token endpoint rejects
@@ -103,6 +106,7 @@ struct Settings: Codable, Equatable, Sendable {
             .alertUnconfirmedInvitations,
             default: fallback.alertUnconfirmedInvitations
         )
+        alertDisplayScope = try value(.alertDisplayScope, default: fallback.alertDisplayScope)
         googleClientID = try value(.googleClientID, default: fallback.googleClientID)
         googleClientSecret = try value(.googleClientSecret, default: fallback.googleClientSecret)
         microsoftClientID = try value(.microsoftClientID, default: fallback.microsoftClientID)

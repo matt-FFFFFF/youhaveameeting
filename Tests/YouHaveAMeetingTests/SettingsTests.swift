@@ -28,6 +28,8 @@ struct SettingsTests {
         // than silently turning alerts off for unanswered invitations.
         #expect(decoded.alertUnconfirmedInvitations)
         #expect(decoded.meetingLinkBrowserIdentifier == "")
+        // Absent from an older file: alerts stay on every display.
+        #expect(decoded.alertDisplayScope == .allDisplays)
     }
 
     @Test("the unconfirmed-invitation choice round-trips")
@@ -52,6 +54,28 @@ struct SettingsTests {
         let decoded = try JSONDecoder().decode(Settings.self, from: data)
 
         #expect(decoded.meetingLinkBrowserIdentifier == "com.google.Chrome")
+    }
+
+    @Test("the display-scope choice round-trips")
+    func displayScope() throws {
+        #expect(Settings().alertDisplayScope == .allDisplays)
+
+        var settings = Settings()
+        settings.alertDisplayScope = .primaryDisplayOnly
+        let data = try JSONEncoder().encode(settings)
+        let decoded = try JSONDecoder().decode(Settings.self, from: data)
+
+        #expect(decoded.alertDisplayScope == .primaryDisplayOnly)
+    }
+
+    @Test("a display scope from a future build falls back without losing the file")
+    func unknownDisplayScopeFallsBack() throws {
+        let json = Data(#"{"alertDisplayScope":"holographic","leadOffsetSeconds":-30}"#.utf8)
+        let decoded = try JSONDecoder().decode(Settings.self, from: json)
+
+        #expect(decoded.alertDisplayScope == .allDisplays)
+        // The whole file must survive, not just the scope.
+        #expect(decoded.leadOffsetSeconds == -30)
     }
 }
 
