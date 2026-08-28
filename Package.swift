@@ -4,13 +4,9 @@ import PackageDescription
 let package = Package(
     name: "YouHaveAMeeting",
     platforms: [.macOS("26.0")],
-    dependencies: [
-        // The app itself has no dependencies. This one is test-only: the
-        // Command Line Tools toolchain ships neither Testing nor XCTest
-        // (both come with full Xcode), so swift-testing is vendored.
-        .package(url: "https://github.com/swiftlang/swift-testing.git", exact: "6.2.4"),
-    ],
     targets: [
+        // No dependencies. Tests use the Testing library from the Xcode
+        // toolchain, so nothing is fetched or resolved.
         .target(
             name: "YouHaveAMeetingCore",
             path: "Sources/YouHaveAMeetingCore"
@@ -22,10 +18,7 @@ let package = Package(
         ),
         .testTarget(
             name: "YouHaveAMeetingTests",
-            dependencies: [
-                "YouHaveAMeetingCore",
-                .product(name: "Testing", package: "swift-testing"),
-            ],
+            dependencies: ["YouHaveAMeetingCore"],
             path: "Tests/YouHaveAMeetingTests"
         ),
     ]

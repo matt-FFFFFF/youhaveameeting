@@ -26,10 +26,8 @@ struct SettingsView: View {
                 MeetingLinkSettingsView(settings: settings)
             }
         }
-        // A sidebar rather than a top tab bar: four labels overflow into a
-        // ">>" chevron at any reasonable window width, hiding most of the
-        // settings behind a menu.
-        .tabViewStyle(.sidebarAdaptable)
+        // Default top tab bar. The sidebar style's detail pane carried a
+        // translucent toolbar strip that overlapped the first row of settings.
         .frame(width: 640, height: 460)
     }
 }
@@ -39,6 +37,13 @@ private struct GeneralSettingsView: View {
     let onScheduleAffectingChange: () -> Void
 
     @State private var browsers: [InstalledBrowser] = []
+
+    init(settings: SettingsStore, onScheduleAffectingChange: @escaping () -> Void) {
+        // The macro form of @State makes the synthesised memberwise init
+        // private; SettingsView is a separate type and must reach this one.
+        self.settings = settings
+        self.onScheduleAffectingChange = onScheduleAffectingChange
+    }
 
     var body: some View {
         Form {

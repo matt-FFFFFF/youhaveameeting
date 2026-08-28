@@ -11,11 +11,10 @@ import UniformTypeIdentifiers
 /// menu-bar glyph are the same mark by construction.
 ///
 /// Icon Composer would be the native way to author a Liquid Glass icon on
-/// macOS 26, but it ships with full Xcode and this project deliberately builds
-/// with Command Line Tools alone. The glass treatment is therefore painted
-/// here and baked into the `.icns`: it keeps the layered look, but it cannot
-/// follow the system's tinted and clear icon modes the way a real `.icon`
-/// bundle would.
+/// macOS 26. The glass treatment is instead painted here and baked into the
+/// `.icns`: it keeps the layered look, but it cannot follow the system's
+/// tinted and clear icon modes the way a real `.icon` bundle would. Now that
+/// the build requires full Xcode, moving to Icon Composer is an option.
 @main
 enum GenerateAppIcon {
     /// Every size an `.icns` wants, as (pixel size, iconset filename).

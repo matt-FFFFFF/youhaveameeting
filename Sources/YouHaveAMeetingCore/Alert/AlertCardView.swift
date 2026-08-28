@@ -13,6 +13,22 @@ struct AlertCardView: View {
 
     private static let snoozeMinutes = [1, 2, 5]
 
+    init(
+        meeting: Meeting,
+        compact: Bool,
+        onJoin: @escaping () -> Void,
+        onSnooze: @escaping (Int) -> Void,
+        onDismiss: @escaping () -> Void
+    ) {
+        // Spelled out because the macro form of @State makes the synthesised
+        // memberwise init private, out of reach of AlertPresenter.
+        self.meeting = meeting
+        self.compact = compact
+        self.onJoin = onJoin
+        self.onSnooze = onSnooze
+        self.onDismiss = onDismiss
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 10 : 24) {
             header

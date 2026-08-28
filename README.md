@@ -25,7 +25,8 @@ only at the moments something already happens.
 ## Requirements
 
 - macOS 26 or later
-- Xcode Command Line Tools — full Xcode is **not** needed
+- Xcode 26 or later — full Xcode, not just the Command Line Tools: recent macOS
+  SDKs make SwiftUI's `@State` a macro whose plugin only Xcode ships
 - [mise](https://mise.jdx.dev), which fetches the few build tools
 
 ## Install

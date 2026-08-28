@@ -13,6 +13,12 @@ struct MeetingLinkSettingsView: View {
     @State private var testURL = ""
     @State private var testResult = "Enter a URL to see which service matches."
 
+    init(settings: SettingsStore) {
+        // The macro form of @State makes the synthesised memberwise init
+        // private; SettingsView builds this from another file.
+        self.settings = settings
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             List {
@@ -104,6 +110,14 @@ private struct MeetingLinkRow: View {
     let provider: MeetingLinkProvider
 
     @State private var isExpanded = false
+
+    init(settings: SettingsStore, index: Int, provider: MeetingLinkProvider) {
+        // The macro form of @State makes the synthesised memberwise init
+        // private, out of reach of the enclosing view's body.
+        self.settings = settings
+        self.index = index
+        self.provider = provider
+    }
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {

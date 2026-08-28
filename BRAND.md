@@ -102,9 +102,8 @@ That compiles `Scripts/GenerateAppIcon.swift` against `BellGlyph.swift`, writes
 a full `.iconset`, and packs it into `Resources/AppIcon.icns`, which is
 committed. A plain `make` never draws anything.
 
-Icon Composer would be the native way to author a Liquid Glass icon on macOS 26,
-but it ships with full Xcode and this project builds with Command Line Tools
-alone. The glass treatment is therefore painted by hand and baked into the
-`.icns`. The look holds; what is lost is the system's tinted and clear icon
-modes, which only a real `.icon` bundle can follow. If the project ever takes a
-dependency on full Xcode, that is the upgrade to make.
+Icon Composer would be the native way to author a Liquid Glass icon on macOS 26.
+The glass treatment is instead painted by hand and baked into the `.icns`. The
+look holds; what is lost is the system's tinted and clear icon modes, which only
+a real `.icon` bundle can follow. The build now requires full Xcode, so moving
+to Icon Composer is an available upgrade.

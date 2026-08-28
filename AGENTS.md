@@ -147,20 +147,26 @@ Breaking one of these breaks the product, not just a test.
 
 ## Toolchain constraints
 
-All consequences of building without full Xcode. Each cost real time to
-diagnose; do not re-derive them.
+Full Xcode is required to build - see the first entry. The rest are pins and
+quirks that each cost real time to diagnose; do not re-derive them.
 
+- **Full Xcode is required, and the Makefile hard-errors without it.** Recent
+  macOS SDKs redeclare `@State` and other SwiftUI property wrappers as macros
+  backed by a `SwiftUIMacros` plugin that only Xcode ships; the Command Line
+  Tools toolchain lacks it, so every `@State` fails to expand. After
+  installing: `sudo xcode-select -s /Applications/Xcode.app` and
+  `sudo xcodebuild -license accept`.
 - **GNU Make is pinned via mise** (`conda:make@4.4.1`). Apple's `/usr/bin/make`
   is 3.81 and lacks `.ONESHELL`. The Makefile hard-errors under it.
-- **swift-testing is pinned to 6.2.4** as a package dependency. Command Line
-  Tools ships neither `Testing` nor `XCTest`. From 6.3.0 swift-testing links
-  `_TestingInterop`, which only the Xcode toolchain provides, so 6.3.x fails at
-  link. This is the only dependency, and it is test-only.
-- **SwiftLint needs `DYLD_FRAMEWORK_PATH="$(xcode-select -p)/usr/lib"`** to find
-  `sourcekitdInProc`. Already in the Makefile.
-- **`swift test` prints two `Internal Error: DecodingError.dataCorrupted` lines**
-  before running. That is the 6.2.4 runner under a 6.3.3 toolchain, not this
-  package. Tests pass; ignore it.
+- **No package dependencies.** Tests `import Testing` from the Xcode
+  toolchain. A vendored `swift-testing` package used to fill that gap under
+  Command Line Tools; it also made the build emit ~24 `PIF: Ignoring settings
+  assignments for unknown platform 'DoesNotExist'` warnings, which went with
+  it. `Package.resolved` is therefore gone too.
+- **SwiftLint and SwiftFormat come from mise, not Xcode** (Xcode bundles
+  neither; its `swift-format` is a different tool with its own config). With
+  full Xcode active SwiftLint finds `sourcekitdInProc` on its own, so the old
+  `DYLD_FRAMEWORK_PATH` shim is gone.
 - **`Settings` decodes by hand.** Synthesised `Codable` treats a missing key as
   an error even when the property has a default, which would make an older
   settings file fail to decode and silently reset every setting. New fields must

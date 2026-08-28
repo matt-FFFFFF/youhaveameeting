@@ -2,6 +2,19 @@ ifneq ($(firstword $(sort 4.4 $(MAKE_VERSION))),4.4)
 $(error GNU Make >= 4.4 required, found $(MAKE_VERSION). Run: mise install)
 endif
 
+# Full Xcode is required, not just the Command Line Tools: the macOS SDK makes
+# @State and other SwiftUI property wrappers macros backed by a SwiftUIMacros
+# plugin that only Xcode ships. Without it every @State fails to expand. If the
+# active developer dir is the Command Line Tools, borrow an installed Xcode for
+# this build rather than making the user run sudo xcode-select.
+ifneq (,$(findstring CommandLineTools,$(shell xcode-select -p 2>/dev/null)))
+DEVELOPER_DIR := $(firstword $(wildcard /Applications/Xcode.app/Contents/Developer /Applications/Xcode-beta.app/Contents/Developer))
+ifeq ($(DEVELOPER_DIR),)
+$(error Full Xcode required, none found in /Applications. Install it, then: sudo xcode-select -s /Applications/Xcode.app)
+endif
+export DEVELOPER_DIR
+endif
+
 .ONESHELL:
 SHELL       := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
@@ -17,10 +30,6 @@ IDENTITY  := YouHaveAMeeting Dev
 BIN       := .build/arm64-apple-macosx/release/$(EXEC)
 BUNDLE    := build/$(NAME).app
 INSTALLED := /Applications/$(NAME).app
-
-# SwiftLint loads sourcekitdInProc via dyld. With Command Line Tools (no full
-# Xcode) that framework is not on the default search path, so point at it.
-SOURCEKIT := $(shell xcode-select -p)/usr/lib
 
 all: bundle
 
@@ -53,7 +62,7 @@ test:
 
 lint:
 	swiftformat Sources Tests --lint
-	DYLD_FRAMEWORK_PATH="$(SOURCEKIT)" swiftlint --strict
+	swiftlint --strict
 
 fmt:
 	swiftformat Sources Tests --quiet

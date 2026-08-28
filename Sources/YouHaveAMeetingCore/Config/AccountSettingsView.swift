@@ -8,6 +8,13 @@ struct AccountSettingsView: View {
     @State private var error: String?
     @State private var connecting: ProviderKind?
 
+    init(settings: SettingsStore, accounts: AccountManager) {
+        // The macro form of @State makes the synthesised memberwise init
+        // private; SettingsView builds this from another file.
+        self.settings = settings
+        self.accounts = accounts
+    }
+
     var body: some View {
         Form {
             Section("Connected") {
